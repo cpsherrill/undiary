@@ -9,6 +9,8 @@
   --muted:  light-dark(#5f6368, #9aa0a6);
   --border: light-dark(#e4e2dd, #2a2f38);
   --accent: light-dark(#1a73e8, #8ab4f8);
+  --accent-wash: light-dark(rgba(26, 115, 232, 0.07), rgba(138, 180, 248, 0.09));
+  --danger: light-dark(#c5221f, #f28b82);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -52,30 +54,131 @@ main {
 }
 .quiet:hover { color: var(--accent); }
 
-/* Signed-in identity, upper right. */
-.who {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
-}
-.who-avatar {
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 50%;
+/* Signed-in identity, upper right: an avatar with a small menu. */
+.who { position: relative; }
+
+.who-btn {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
   border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  overflow: hidden;
+  cursor: pointer;
 }
-.who-id {
+.who-btn:hover { border-color: var(--accent); }
+.who-avatar { width: 100%; height: 100%; object-fit: cover; }
+.who-fallback {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.who-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 30;
+  min-width: 15rem;
+  padding: 0.35rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}
+.who-email {
+  margin: 0;
+  padding: 0.5rem 0.7rem 0.6rem;
+  border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.85rem;
-  max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: default;
 }
-@media (max-width: 540px) {
-  .who-id { max-width: 8rem; }
+.who-menu form { margin: 0; }
+.who-menu .menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
 }
+.who-menu .menu-item:hover { background: var(--accent-wash); color: var(--accent); }
+
+/* ---- Audio recording ---- */
+
+.rec-btn {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.rec-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* The two icons swap via the recording state; hidden attrs don't
+   apply to inline SVG. */
+.rec-btn .rec-icon-stop { display: none; }
+.rec-btn[data-recording] .rec-icon-mic { display: none; }
+.rec-btn[data-recording] .rec-icon-stop { display: block; }
+.rec-btn[data-recording] {
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: rec-pulse 1.6s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  50% { box-shadow: 0 0 0 5px var(--accent-wash); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-btn[data-recording] { animation: none; }
+}
+
+.rec-status {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+.rec-status[data-attached] { color: var(--text); }
+
+.rec-discard {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.rec-discard:hover { color: var(--danger); }
+
+.log-left {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.entry-audio { margin-top: 0.4rem; }
+.entry-audio audio { width: 100%; max-width: 24rem; height: 2.2rem; }
 
 /* ---- The log form ---- */
 
@@ -120,7 +223,8 @@ textarea:focus-visible {
 
 .log-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 0.6rem;
 }
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<form method="post" class="log-form">
+<form method="post" class="log-form" enctype="multipart/form-data">
   {% csrf_token %}
   <div class="log-meta">
     <input type="date" name="log_date" id="log-date" aria-label="Log date">
@@ -9,7 +9,21 @@
     <input type="hidden" name="tz" id="tz" value="UTC">
   </div>
   <textarea name="text" rows="5" autofocus aria-label="New entry"></textarea>
+  <input type="file" name="audio" id="audio-input" accept="audio/*" hidden>
   <div class="log-actions">
+    <div class="log-left">
+      <button type="button" id="rec" class="rec-btn" aria-label="Record audio" hidden>
+        <svg class="rec-icon-mic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0M12 17v5"/>
+        </svg>
+        <svg class="rec-icon-stop" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+          <rect x="5" y="5" width="14" height="14" rx="2"/>
+        </svg>
+      </button>
+      <span id="rec-status" class="rec-status"></span>
+      <button type="button" id="rec-discard" class="rec-discard" hidden>discard</button>
+    </div>
     <button type="submit">Log</button>
   </div>
 </form>
@@ -18,7 +32,12 @@
   {% for entry in entries %}
   <article class="entry">
     <p class="entry-meta">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</p>
-    <div class="entry-body">{{ entry.body|linebreaks }}</div>
+    {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaks }}</div>{% endif %}
+    {% if entry.audio_key %}
+    <div class="entry-audio">
+      <audio controls preload="none" src="{% url 'entry_audio' entry.pk %}"></audio>
+    </div>
+    {% endif %}
   </article>
   {% empty %}
   <p class="empty">Nothing here yet.</p>

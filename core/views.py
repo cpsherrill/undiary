@@ -1,20 +1,37 @@
 import datetime
+import mimetypes
+import uuid
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.core.files.storage import default_storage
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+
+# MediaRecorder produces webm (Chrome, Firefox) or mp4 (Safari).
+AUDIO_EXTENSIONS = {
+    "audio/webm": "webm",
+    "audio/ogg": "ogg",
+    "audio/mp4": "m4a",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+}
 
 
 @login_required
 def index(request):
     if request.method == "POST":
         text = (request.POST.get("text") or "").strip()
-        if text:
+        upload = request.FILES.get("audio")
+        if text or upload:
+            audio_key = _store_audio(upload) if upload else ""
             tz = (request.POST.get("tz") or "UTC")[:64]
             log_date = _parse_date(request.POST.get("log_date")) or timezone.localdate()
             request.user.entries.create(
                 raw=text,
                 body=text,
+                audio_key=audio_key,
                 spoken_at=timezone.now(),
                 tz=tz,
                 log_date=log_date,
@@ -23,6 +40,23 @@ def index(request):
 
     entries = request.user.entries.all()[:50]
     return render(request, "index.html", {"entries": entries})
+
+
+@login_required
+def entry_audio(request, pk):
+    entry = get_object_or_404(request.user.entries.exclude(audio_key=""), pk=pk)
+    content_type = (
+        mimetypes.guess_type(entry.audio_key)[0] or "application/octet-stream"
+    )
+    return FileResponse(
+        default_storage.open(entry.audio_key), content_type=content_type
+    )
+
+
+def _store_audio(upload):
+    base_type = (upload.content_type or "").split(";")[0].strip().lower()
+    ext = AUDIO_EXTENSIONS.get(base_type, "bin")
+    return default_storage.save(f"audio/{uuid.uuid4().hex}.{ext}", upload)
 
 
 def _parse_date(value):

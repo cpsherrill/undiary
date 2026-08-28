@@ -1,7 +1,10 @@
 import datetime
+import shutil
+import tempfile
 
 from allauth.socialaccount.models import SocialLogin
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -143,6 +146,67 @@ class AllowlistTests(TestCase):
         self.assertFalse(
             adapter.is_open_for_signup(None, self._sociallogin("stranger@example.com"))
         )
+
+
+class AudioTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root = tempfile.mkdtemp()
+        cls.enterClassContext(override_settings(MEDIA_ROOT=cls.media_root))
+        cls.addClassCleanup(shutil.rmtree, cls.media_root, ignore_errors=True)
+
+    def _clip(self):
+        return SimpleUploadedFile(
+            "recording.webm", b"not-really-audio", content_type="audio/webm"
+        )
+
+    def test_post_with_text_and_audio_makes_one_entry(self):
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(
+            reverse("index"), {"text": "hummed a tune", "tz": "UTC", "audio": self._clip()}
+        )
+        entry = user.entries.get()
+        self.assertEqual(entry.body, "hummed a tune")
+        self.assertTrue(entry.audio_key.startswith("audio/"))
+        self.assertTrue(entry.audio_key.endswith(".webm"))
+
+    def test_audio_only_post_makes_an_entry(self):
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(reverse("index"), {"text": "", "tz": "UTC", "audio": self._clip()})
+        entry = user.entries.get()
+        self.assertEqual(entry.body, "")
+        self.assertTrue(entry.audio_key)
+
+    def test_owner_can_stream_their_audio(self):
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(reverse("index"), {"tz": "UTC", "audio": self._clip()})
+        entry = user.entries.get()
+        response = self.client.get(reverse("entry_audio", args=[entry.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), b"not-really-audio")
+
+    def test_strangers_get_404_for_others_audio(self):
+        owner = make_user()
+        self.client.force_login(owner)
+        self.client.post(reverse("index"), {"tz": "UTC", "audio": self._clip()})
+        entry = owner.entries.get()
+        self.client.logout()
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        response = self.client.get(reverse("entry_audio", args=[entry.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_text_entry_has_no_audio_endpoint(self):
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(reverse("index"), {"text": "words only", "tz": "UTC"})
+        entry = user.entries.get()
+        response = self.client.get(reverse("entry_audio", args=[entry.pk]))
+        self.assertEqual(response.status_code, 404)
 
 
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])

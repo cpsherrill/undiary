@@ -104,12 +104,22 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+MEDIA_ROOT = BASE_DIR / "media"
+
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
     },
 }
+
+# Audio lives in GCS when a bucket is configured, local disk otherwise.
+GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME", "")
+if GS_BUCKET_NAME:
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {"bucket_name": GS_BUCKET_NAME, "file_overwrite": False},
+    }
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
