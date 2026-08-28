@@ -12,4 +12,11 @@
   <ellipse cx="34" cy="64" rx="10.5" ry="13.5" fill="none"
            stroke="#c9995c" stroke-width="4.5"/>
   <circle cx="34" cy="64" r="3.5" fill="#c9995c"/>
+  <!-- One leaf. The log is still trying. -->
+  <path d="M80 41 C80 34 81 30 84 26" stroke="#3f7d2c" stroke-width="6"
+        stroke-linecap="round" fill="none"/>
+  <path d="M84 26 C86 12 98 5 111 7 C111 19 102 29 88 29 C85 29 84 28 84 26 Z"
+        fill="#6cb14e" stroke="#3f7d2c" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M89 24 C95 19 101 15 106 12" stroke="#3f7d2c" stroke-width="3.5"
+        fill="none" stroke-linecap="round" opacity="0.65"/>
 </svg>
