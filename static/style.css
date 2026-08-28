@@ -362,6 +362,22 @@ button[type="submit"]:hover, .btn:hover {
   font-size: 0.88rem;
 }
 
+/* ---- Outbox: entries waiting out a dead network ---- */
+
+.outbox {
+  margin-top: 1.1rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+.outbox-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.outbox .entry { padding: 0.6rem 0 0.2rem; opacity: 0.8; }
+.outbox .entry + .entry { border-top: 1px solid var(--border); }
+
 /* ---- Entries ---- */
 
 .entries { margin-top: 1.1rem; }

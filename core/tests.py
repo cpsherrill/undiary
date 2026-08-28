@@ -116,6 +116,38 @@ class IndexViewTests(TestCase):
         response = self.client.get(reverse("index"))
         self.assertContains(response, "https://lh3.example.com/photo.jpg")
 
+    def test_synced_entry_keeps_its_spoken_instant(self):
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(
+            reverse("index"),
+            {"text": "from the outbox", "tz": "UTC", "spoken_at": "2026-08-28T02:03:04Z"},
+        )
+        entry = user.entries.get()
+        self.assertEqual(
+            entry.spoken_at,
+            timezone.datetime(2026, 8, 28, 2, 3, 4, tzinfo=datetime.timezone.utc),
+        )
+
+    def test_bad_spoken_at_means_now(self):
+        user = make_user()
+        self.client.force_login(user)
+        before = timezone.now()
+        self.client.post(
+            reverse("index"), {"text": "x", "tz": "UTC", "spoken_at": "not-a-time"}
+        )
+        self.assertGreaterEqual(user.entries.get().spoken_at, before)
+
+    def test_naive_spoken_at_means_now(self):
+        user = make_user()
+        self.client.force_login(user)
+        before = timezone.now()
+        self.client.post(
+            reverse("index"),
+            {"text": "x", "tz": "UTC", "spoken_at": "2026-08-28T02:03:04"},
+        )
+        self.assertGreaterEqual(user.entries.get().spoken_at, before)
+
     def test_entries_are_the_users_own(self):
         user = make_user()
         other = make_user("other@example.com")

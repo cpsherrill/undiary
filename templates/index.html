@@ -39,6 +39,8 @@
 <p class="search-note">{{ entries|length }} match{{ entries|length|pluralize:"es" }}</p>
 {% endif %}
 
+<section id="outbox" class="outbox" hidden></section>
+
 <section class="entries{% if q %} entries-searching{% endif %}">
   {% for entry in entries %}
   {% include "_entry.html" with entry=entry %}

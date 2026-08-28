@@ -91,23 +91,233 @@
     if (e.key === "Escape") closeMenus();
   });
 
-  // ----- The log form: one submit only, and a keyboard shortcut -----------
+  // ----- The log form: fetch submits, an offline outbox, a shortcut -------
+  // Entries post via fetch so a dead network can be caught; caught
+  // entries wait in IndexedDB and flush, in order, when the network
+  // returns. The captain does not check for signal.
 
   var logForm = document.querySelector(".log-form");
   if (logForm) {
     var logBtn = logForm.querySelector('button[type="submit"]');
+    var textArea = logForm.querySelector("textarea");
+    var outboxEl = document.getElementById("outbox");
+
+    var resetLogForm = function () {
+      logForm.removeAttribute("data-submitting");
+      if (logBtn) {
+        logBtn.disabled = false;
+        logBtn.textContent = "Log";
+      }
+    };
+
+    var clearLogForm = function () {
+      if (textArea) textArea.value = "";
+      var discardBtn = document.getElementById("rec-discard");
+      if (discardBtn && !discardBtn.hidden) discardBtn.click();
+      var fileInput = document.getElementById("audio-input");
+      if (fileInput) fileInput.value = "";
+    };
+
+    var openOutbox = function () {
+      return new Promise(function (resolve, reject) {
+        var req = indexedDB.open("undiary", 1);
+        req.onupgradeneeded = function () {
+          req.result.createObjectStore("outbox", { autoIncrement: true });
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    };
+
+    var outboxAll = function () {
+      return openOutbox().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var rows = [];
+          var tx = db.transaction("outbox", "readonly");
+          tx.objectStore("outbox").openCursor().onsuccess = function (e) {
+            var cursor = e.target.result;
+            if (cursor) {
+              rows.push({ key: cursor.key, value: cursor.value });
+              cursor.continue();
+            } else {
+              resolve(rows);
+            }
+          };
+          tx.onerror = function () { reject(tx.error); };
+        });
+      });
+    };
+
+    var outboxAdd = function (record) {
+      return openOutbox().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction("outbox", "readwrite");
+          tx.objectStore("outbox").add(record);
+          tx.oncomplete = resolve;
+          tx.onerror = function () { reject(tx.error); };
+        });
+      });
+    };
+
+    var outboxRemove = function (key) {
+      return openOutbox().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction("outbox", "readwrite");
+          tx.objectStore("outbox").delete(key);
+          tx.oncomplete = resolve;
+          tx.onerror = function () { reject(tx.error); };
+        });
+      });
+    };
+
+    var renderOutbox = function () {
+      if (!outboxEl) return;
+      outboxAll().then(function (rows) {
+        outboxEl.innerHTML = "";
+        if (!rows.length) {
+          outboxEl.hidden = true;
+          return;
+        }
+        var note = document.createElement("p");
+        note.className = "outbox-note";
+        note.textContent =
+          rows.length === 1
+            ? "1 entry waits for the network."
+            : rows.length + " entries wait for the network.";
+        outboxEl.appendChild(note);
+        rows.forEach(function (row) {
+          var ghost = document.createElement("article");
+          ghost.className = "entry";
+          var meta = document.createElement("p");
+          meta.className = "entry-meta";
+          meta.textContent = (row.value.log_date || "") + " · queued";
+          var body = document.createElement("div");
+          body.className = "entry-body";
+          var p = document.createElement("p");
+          p.textContent = row.value.text || "(audio)";
+          body.appendChild(p);
+          ghost.appendChild(meta);
+          ghost.appendChild(body);
+          outboxEl.appendChild(ghost);
+        });
+        outboxEl.hidden = false;
+      }).catch(function () { /* no IndexedDB, no outbox UI */ });
+    };
+
+    var csrfToken = function () {
+      var input = logForm.querySelector('[name="csrfmiddlewaretoken"]');
+      return input ? input.value : "";
+    };
+
+    var postable = function (res) {
+      return res.ok && res.url.indexOf("/accounts/") === -1;
+    };
+
+    var flushing = false;
+    var flushOutbox = function () {
+      if (flushing || !navigator.onLine) return;
+      flushing = true;
+      outboxAll().then(function (rows) {
+        var i = 0;
+        var sent = 0;
+        var finish = function () {
+          flushing = false;
+          if (sent && i >= rows.length) {
+            location.reload();
+          } else {
+            renderOutbox();
+          }
+        };
+        var next = function () {
+          if (i >= rows.length) { finish(); return; }
+          var row = rows[i++];
+          var fd = new FormData();
+          fd.append("csrfmiddlewaretoken", csrfToken());
+          fd.append("text", row.value.text || "");
+          fd.append("tz", row.value.tz || "UTC");
+          fd.append("log_date", row.value.log_date || "");
+          fd.append("spoken_at", row.value.spoken_at || "");
+          if (row.value.audio) {
+            fd.append("audio", row.value.audio, row.value.audio_name || "recording.webm");
+          }
+          fetch("/", { method: "POST", body: fd, credentials: "same-origin" })
+            .then(function (res) {
+              if (postable(res)) {
+                outboxRemove(row.key).then(function () {
+                  sent++;
+                  next();
+                });
+              } else {
+                i = rows.length + 1;
+                finish();
+              }
+            })
+            .catch(function () {
+              i = rows.length + 1;
+              finish();
+            });
+        };
+        next();
+      }).catch(function () { flushing = false; });
+    };
 
     logForm.addEventListener("submit", function (e) {
-      if (logForm.hasAttribute("data-submitting")) {
-        e.preventDefault();
-        return;
-      }
+      e.preventDefault();
+      if (logForm.hasAttribute("data-submitting")) return;
+
+      var text = textArea ? textArea.value.trim() : "";
+      var fileInput = document.getElementById("audio-input");
+      var hasAudio = fileInput && fileInput.files.length > 0;
+      if (!text && !hasAudio) return;
+
       logForm.setAttribute("data-submitting", "");
       if (logBtn) {
         logBtn.disabled = true;
         logBtn.textContent = "Logging…";
       }
+
+      var record = {
+        text: text,
+        tz: (document.getElementById("tz") || {}).value || "UTC",
+        log_date: (document.getElementById("log-date") || {}).value || "",
+        spoken_at: new Date().toISOString(),
+        audio: hasAudio ? fileInput.files[0] : null,
+        audio_name: hasAudio ? fileInput.files[0].name : "",
+        queued_at: new Date().toISOString(),
+      };
+
+      var queueIt = function () {
+        outboxAdd(record).then(
+          function () {
+            clearLogForm();
+            resetLogForm();
+            renderOutbox();
+          },
+          function () { resetLogForm(); }
+        );
+      };
+
+      if (!navigator.onLine) {
+        queueIt();
+        return;
+      }
+
+      var fd = new FormData(logForm);
+      fd.append("spoken_at", record.spoken_at);
+      fetch(location.href, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(function (res) {
+          if (postable(res)) {
+            location.assign("/");
+          } else {
+            resetLogForm();
+          }
+        })
+        .catch(queueIt);
     });
+
+    window.addEventListener("online", flushOutbox);
+    renderOutbox();
+    flushOutbox();
 
     // Cmd+Enter (Ctrl+Enter off Mac) logs the entry. While a recording
     // is running it stops the recording instead, so nothing half-said

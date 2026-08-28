@@ -7,6 +7,7 @@ from django.core.files.storage import default_storage
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
 from . import enrichment, search, transcription
@@ -35,7 +36,7 @@ def index(request):
                 raw=text,
                 body=text,
                 audio_key=audio_key,
-                spoken_at=timezone.now(),
+                spoken_at=_parse_spoken_at(request.POST.get("spoken_at")),
                 tz=tz,
                 log_date=log_date,
             )
@@ -118,3 +119,14 @@ def _parse_date(value):
         return datetime.date.fromisoformat(value or "")
     except ValueError:
         return None
+
+
+def _parse_spoken_at(value):
+    """An entry synced from the offline outbox carries the instant it
+    was actually composed; anything absent, malformed, or naive means
+    now."""
+    if value:
+        parsed = parse_datetime(value)
+        if parsed and timezone.is_aware(parsed):
+            return parsed
+    return timezone.now()
