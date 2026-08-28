@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import enrichment, search
+from . import enrichment, search, transcription
 
 # MediaRecorder produces webm (Chrome, Firefox) or mp4 (Safari).
 AUDIO_EXTENSIONS = {
@@ -39,6 +39,8 @@ def index(request):
                 tz=tz,
                 log_date=log_date,
             )
+            if audio_key:
+                transcription.transcribe_quietly(entry)
             enrichment.enrich_quietly(entry)
         return redirect("index")
 

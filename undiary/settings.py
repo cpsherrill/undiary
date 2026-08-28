@@ -32,6 +32,9 @@ UNDIARY_ALLOWED_EMAILS = [
 # picked up by the SDK itself.
 ENRICHMENT_MODEL = os.environ.get("ENRICHMENT_MODEL", "claude-haiku-4-5")
 
+# Speech-to-Text language for audio entries.
+SPEECH_LANGUAGE = os.environ.get("SPEECH_LANGUAGE", "en-US")
+
 # Emails that get Django admin (staff and superuser) at signup.
 UNDIARY_ADMIN_EMAILS = [
     e.strip().lower()

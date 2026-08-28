@@ -185,6 +185,13 @@ main {
 
 .entry-audio { margin-top: 0.4rem; }
 .entry-audio audio { width: 100%; max-width: 24rem; height: 2.2rem; }
+.pending-note {
+  display: inline-block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+}
 
 .entry-tags {
   display: flex;

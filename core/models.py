@@ -21,8 +21,11 @@ class Entry(models.Model):
     raw = models.TextField(blank=True, default="")
     audio_key = models.CharField(max_length=1024, blank=True, default="")
 
-    # Derived from audio when it contains speech; recomputable.
+    # Derived from audio when it contains speech; recomputable. The
+    # timestamp records that an attempt finished, even a silent one,
+    # so "no speech" is a state and not a retry loop.
     transcript = models.TextField(blank=True, default="")
+    transcribed_at = models.DateTimeField(null=True, blank=True)
 
     # Editable display copy, initialized from raw or transcript.
     body = models.TextField(blank=True, default="")

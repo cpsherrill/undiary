@@ -51,17 +51,24 @@ After the domain resolves, add
 `https://undiary.com/accounts/google/login/callback/` to the OAuth
 client (Google Auth Platform, Clients).
 
-## Enrichment operations
+## Pipeline operations
 
 The Anthropic key lives in Secret Manager as `anthropic-api-key`,
-mounted on the service and both jobs. The sweep:
+mounted on the service and both jobs. Transcription is Speech-to-Text
+v2 (API enabled, `undiary-run` holds roles/speech.client, and the
+Speech service agent can read the audio bucket for the batch path).
 
-- Cloud Run job `undiary-enrich` runs `manage.py enrich_pending`
-  (add `--args` overrides for `--all` when the watchlist changes).
+- Cloud Run job `undiary-enrich` runs `manage.py sweep`: transcribe
+  pending audio, then enrich pending entries, in that order so a
+  fresh transcript is read the same pass. `--all` variants exist on
+  both underlying commands for retroactive re-runs.
 - Cloud Scheduler `undiary-enrich-sweep` fires it every 15 minutes as
-  the backstop; the inline pass after each save does the normal work.
+  the backstop; inline passes after each save do the normal work.
 - After a code deploy, point both jobs at the new image (same command
   as the migrate job's update, swapping the job name).
+- Gotcha: jobs do not inherit the service's env. Anything storage or
+  pipeline shaped (GS_BUCKET_NAME especially) must be set on the jobs
+  too, or they quietly read local disk instead of GCS.
 
 ## Costs
 

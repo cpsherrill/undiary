@@ -383,6 +383,111 @@ class EnrichmentTests(TestCase):
         self.assertContains(response, "woodworking")
 
 
+class TranscriptionTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root = tempfile.mkdtemp()
+        cls.enterClassContext(override_settings(MEDIA_ROOT=cls.media_root))
+        cls.addClassCleanup(shutil.rmtree, cls.media_root, ignore_errors=True)
+
+    def setUp(self):
+        self.user = make_user()
+
+    def _audio_entry(self, body=""):
+        from django.core.files.storage import default_storage
+
+        key = default_storage.save(
+            "audio/test.webm", SimpleUploadedFile("t.webm", b"bytes", "audio/webm")
+        )
+        return Entry.objects.create(
+            user=self.user, body=body, raw=body, audio_key=key,
+            log_date=datetime.date(2026, 8, 28),
+        )
+
+    def test_transcript_fills_empty_body(self):
+        from unittest.mock import patch
+
+        from .transcription import transcribe_entry
+
+        entry = self._audio_entry()
+        with patch("core.transcription._recognize", return_value="I spoke words."):
+            transcribe_entry(entry)
+        entry.refresh_from_db()
+        self.assertEqual(entry.transcript, "I spoke words.")
+        self.assertEqual(entry.body, "I spoke words.")
+        self.assertIsNotNone(entry.transcribed_at)
+
+    def test_typed_body_is_not_overwritten(self):
+        from unittest.mock import patch
+
+        from .transcription import transcribe_entry
+
+        entry = self._audio_entry(body="my note")
+        with patch("core.transcription._recognize", return_value="spoken extra"):
+            transcribe_entry(entry)
+        entry.refresh_from_db()
+        self.assertEqual(entry.body, "my note")
+        self.assertEqual(entry.transcript, "spoken extra")
+
+    def test_no_speech_is_recorded_not_retried(self):
+        from unittest.mock import patch
+
+        from .transcription import transcribe_entry
+
+        entry = self._audio_entry()
+        with patch("core.transcription._recognize", return_value=""):
+            transcribe_entry(entry)
+        entry.refresh_from_db()
+        self.assertEqual(entry.transcript, "")
+        self.assertIsNotNone(entry.transcribed_at)
+        pending = Entry.objects.exclude(audio_key="").filter(
+            transcribed_at__isnull=True
+        )
+        self.assertNotIn(entry, pending)
+
+    def test_text_only_entry_returns_none(self):
+        from .transcription import transcribe_entry
+
+        entry = Entry.objects.create(
+            user=self.user, raw="x", body="x", log_date=datetime.date(2026, 8, 28)
+        )
+        self.assertIsNone(transcribe_entry(entry))
+
+    def test_sweep_transcribes_then_enriches_same_pass(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        entry = self._audio_entry()
+        out = StringIO()
+        with patch(
+            "core.transcription._recognize", return_value="a spoken project idea"
+        ), patch("core.enrichment._call_model", return_value=result_fixture()):
+            call_command("sweep", stdout=out)
+        entry.refresh_from_db()
+        self.assertEqual(entry.body, "a spoken project idea")
+        self.assertEqual(entry.enrichments.count(), 1)
+        self.assertIn("transcribed 1", out.getvalue())
+        self.assertIn("enriched 1", out.getvalue())
+
+    def test_post_with_audio_survives_transcription_failure(self):
+        from unittest.mock import patch
+
+        self.client.force_login(self.user)
+        clip = SimpleUploadedFile("r.webm", b"bytes", content_type="audio/webm")
+        with patch(
+            "core.transcription._recognize", side_effect=RuntimeError("stt down")
+        ), patch("core.enrichment._call_model", side_effect=RuntimeError("api down")):
+            response = self.client.post(
+                reverse("index"), {"text": "", "tz": "UTC", "audio": clip}
+            )
+        self.assertRedirects(response, reverse("index"))
+        entry = self.user.entries.get()
+        self.assertIsNone(entry.transcribed_at)
+
+
 class SearchTests(TestCase):
     def setUp(self):
         self.user = make_user()
