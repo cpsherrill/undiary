@@ -7,6 +7,7 @@ from django.core.files.storage import default_storage
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 # MediaRecorder produces webm (Chrome, Firefox) or mp4 (Safari).
 AUDIO_EXTENSIONS = {
@@ -51,6 +52,22 @@ def entry_audio(request, pk):
     return FileResponse(
         default_storage.open(entry.audio_key), content_type=content_type
     )
+
+
+@login_required
+@require_POST
+def entry_delete(request, pk):
+    entry = get_object_or_404(request.user.entries, pk=pk)
+    audio_key = entry.audio_key
+    entry.delete()
+    if audio_key:
+        try:
+            default_storage.delete(audio_key)
+        except Exception:
+            # The row is gone either way; an orphaned blob is the
+            # cheaper failure, so cleanup stays best-effort.
+            pass
+    return redirect("index")
 
 
 def _store_audio(upload):

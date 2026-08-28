@@ -22,6 +22,7 @@
         </svg>
       </button>
       <span id="rec-status" class="rec-status"></span>
+      <audio id="rec-preview" class="rec-preview" controls hidden></audio>
       <button type="button" id="rec-discard" class="rec-discard" hidden>discard</button>
     </div>
     <button type="submit">Log</button>
@@ -31,7 +32,24 @@
 <section class="entries">
   {% for entry in entries %}
   <article class="entry">
-    <p class="entry-meta">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</p>
+    <div class="entry-head">
+      <p class="entry-meta">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</p>
+      <div class="entry-actions">
+        <button class="dots-btn" type="button" data-menu-button
+                aria-haspopup="menu" aria-expanded="false" aria-label="Entry actions">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/>
+          </svg>
+        </button>
+        <div class="popover entry-menu" role="menu" data-menu hidden>
+          <form method="post" action="{% url 'entry_delete' entry.pk %}">
+            {% csrf_token %}
+            <button class="menu-item menu-danger" type="submit" role="menuitem"
+                    data-confirm="Really delete?">Delete entry</button>
+          </form>
+        </div>
+      </div>
+    </div>
     {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaks }}</div>{% endif %}
     {% if entry.audio_key %}
     <div class="entry-audio">

@@ -13,7 +13,7 @@
     <span class="brand">Undiary</span>
     {% if user.is_authenticated %}
     <div class="who">
-      <button id="who-btn" class="who-btn" type="button"
+      <button id="who-btn" class="who-btn" type="button" data-menu-button
               aria-haspopup="menu" aria-expanded="false" aria-label="Account">
         {% with sa=user.socialaccount_set.all|first %}
         {% if sa.extra_data.picture %}
@@ -24,7 +24,7 @@
         {% endif %}
         {% endwith %}
       </button>
-      <div id="who-menu" class="who-menu" role="menu" hidden>
+      <div id="who-menu" class="popover who-menu" role="menu" data-menu hidden>
         <p class="who-email">{{ user.email|default:user.username }}</p>
         <form method="post" action="{% url 'account_logout' %}">
           {% csrf_token %}

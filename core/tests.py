@@ -208,6 +208,50 @@ class AudioTests(TestCase):
         response = self.client.get(reverse("entry_audio", args=[entry.pk]))
         self.assertEqual(response.status_code, 404)
 
+    def test_delete_removes_entry_and_its_audio_file(self):
+        from django.core.files.storage import default_storage
+
+        user = make_user()
+        self.client.force_login(user)
+        self.client.post(reverse("index"), {"tz": "UTC", "audio": self._clip()})
+        entry = user.entries.get()
+        self.assertTrue(default_storage.exists(entry.audio_key))
+        response = self.client.post(reverse("entry_delete", args=[entry.pk]))
+        self.assertRedirects(response, reverse("index"))
+        self.assertEqual(user.entries.count(), 0)
+        self.assertFalse(default_storage.exists(entry.audio_key))
+
+
+class EntryDeleteTests(TestCase):
+    def _entry(self, user):
+        return Entry.objects.create(
+            user=user, raw="x", body="x", log_date=datetime.date(2026, 8, 28)
+        )
+
+    def test_owner_can_delete(self):
+        user = make_user()
+        entry = self._entry(user)
+        self.client.force_login(user)
+        self.client.post(reverse("entry_delete", args=[entry.pk]))
+        self.assertEqual(user.entries.count(), 0)
+
+    def test_stranger_cannot_delete(self):
+        owner = make_user()
+        entry = self._entry(owner)
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        response = self.client.post(reverse("entry_delete", args=[entry.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(owner.entries.count(), 1)
+
+    def test_get_is_not_allowed(self):
+        user = make_user()
+        entry = self._entry(user)
+        self.client.force_login(user)
+        response = self.client.get(reverse("entry_delete", args=[entry.pk]))
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(user.entries.count(), 1)
+
 
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])
 class AdminPromotionTests(TestCase):

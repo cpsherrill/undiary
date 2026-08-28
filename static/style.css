@@ -78,31 +78,19 @@ main {
   user-select: none;
 }
 
-.who-menu {
+/* Shared popover card; each site of use positions it. */
+.popover {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
   z-index: 30;
-  min-width: 15rem;
   padding: 0.35rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
 }
-.who-email {
-  margin: 0;
-  padding: 0.5rem 0.7rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.85rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
-}
-.who-menu form { margin: 0; }
-.who-menu .menu-item {
+.popover .menu-item {
   display: block;
   width: 100%;
   padding: 0.5rem 0.7rem;
@@ -116,8 +104,24 @@ main {
   font-weight: 400;
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
 }
-.who-menu .menu-item:hover { background: var(--accent-wash); color: var(--accent); }
+.popover .menu-item:hover { background: var(--accent-wash); color: var(--accent); }
+.popover .menu-danger:hover { background: var(--accent-wash); color: var(--danger); }
+.popover form { margin: 0; }
+
+.who-menu { min-width: 15rem; }
+.who-email {
+  margin: 0;
+  padding: 0.5rem 0.7rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
 
 /* ---- Audio recording ---- */
 
@@ -156,6 +160,7 @@ main {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
 }
+.rec-preview { width: 13rem; height: 2.1rem; }
 .rec-status[data-attached] { color: var(--text); }
 
 .rec-discard {
@@ -173,12 +178,34 @@ main {
 .log-left {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
   min-width: 0;
 }
 
 .entry-audio { margin-top: 0.4rem; }
 .entry-audio audio { width: 100%; max-width: 24rem; height: 2.2rem; }
+
+.entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.entry-actions { position: relative; }
+.dots-btn {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.dots-btn:hover { background: var(--accent-wash); color: var(--accent); }
 
 /* ---- The log form ---- */
 

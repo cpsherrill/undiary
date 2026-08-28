@@ -34,26 +34,49 @@
     setInterval(tick, 30 * 1000);
   }
 
-  // ----- Account menu ------------------------------------------------------
+  // ----- Popover menus (account, per-entry) --------------------------------
+  // One document listener runs every [data-menu-button] / [data-menu] pair.
+  // Buttons with data-confirm arm on the first click and act on the second.
 
-  var whoBtn = document.getElementById("who-btn");
-  var whoMenu = document.getElementById("who-menu");
-  if (whoBtn && whoMenu) {
-    var setMenu = function (open) {
-      whoMenu.hidden = !open;
-      whoBtn.setAttribute("aria-expanded", String(open));
-    };
-    whoBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      setMenu(whoMenu.hidden);
+  var closeMenus = function () {
+    document.querySelectorAll("[data-menu]").forEach(function (menu) {
+      menu.hidden = true;
     });
-    document.addEventListener("click", function (e) {
-      if (!whoMenu.hidden && !whoMenu.contains(e.target)) setMenu(false);
+    document.querySelectorAll("[data-menu-button]").forEach(function (btn) {
+      btn.setAttribute("aria-expanded", "false");
     });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") setMenu(false);
+    document.querySelectorAll("[data-confirm][data-armed]").forEach(function (btn) {
+      btn.textContent = btn.dataset.label;
+      btn.removeAttribute("data-armed");
     });
-  }
+  };
+
+  document.addEventListener("click", function (e) {
+    var confirmBtn = e.target.closest("[data-confirm]");
+    if (confirmBtn && !confirmBtn.hasAttribute("data-armed")) {
+      e.preventDefault();
+      confirmBtn.dataset.label = confirmBtn.textContent;
+      confirmBtn.textContent = confirmBtn.dataset.confirm;
+      confirmBtn.setAttribute("data-armed", "");
+      return;
+    }
+    var menuBtn = e.target.closest("[data-menu-button]");
+    if (menuBtn) {
+      var menu = menuBtn.parentElement.querySelector("[data-menu]");
+      var wasClosed = menu.hidden;
+      closeMenus();
+      if (wasClosed) {
+        menu.hidden = false;
+        menuBtn.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+    if (!e.target.closest("[data-menu]")) closeMenus();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeMenus();
+  });
 
   // ----- Audio recorder ----------------------------------------------------
 
@@ -61,6 +84,8 @@
   var status = document.getElementById("rec-status");
   var discard = document.getElementById("rec-discard");
   var audioInput = document.getElementById("audio-input");
+  var preview = document.getElementById("rec-preview");
+  var previewUrl = null;
 
   if (recBtn && audioInput && navigator.mediaDevices && window.MediaRecorder) {
     recBtn.hidden = false;
@@ -82,19 +107,33 @@
       return m + ":" + s;
     };
 
+    var clearPreview = function () {
+      preview.pause();
+      preview.hidden = true;
+      preview.removeAttribute("src");
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+      }
+    };
+
     var setIdle = function (message) {
       recBtn.removeAttribute("data-recording");
       recBtn.setAttribute("aria-label", "Record audio");
       status.textContent = message || "";
       status.removeAttribute("data-attached");
       discard.hidden = true;
+      clearPreview();
     };
 
-    var setAttached = function (seconds) {
+    var setAttached = function (seconds, file) {
       setIdle("");
       status.textContent = "audio attached, " + fmt(seconds);
       status.setAttribute("data-attached", "");
       discard.hidden = false;
+      previewUrl = URL.createObjectURL(file);
+      preview.src = previewUrl;
+      preview.hidden = false;
     };
 
     var start = function () {
@@ -114,7 +153,7 @@
             var dt = new DataTransfer();
             dt.items.add(file);
             audioInput.files = dt.files;
-            setAttached(seconds);
+            setAttached(seconds, file);
           };
           recorder.start();
           startedAt = Date.now();
