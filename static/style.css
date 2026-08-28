@@ -186,6 +186,26 @@ main {
 .entry-audio { margin-top: 0.4rem; }
 .entry-audio audio { width: 100%; max-width: 24rem; height: 2.2rem; }
 
+.entry-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.tag-chip {
+  padding: 0.08rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+.tag-chip.tag-watched {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
 .entry-head {
   display: flex;
   align-items: center;

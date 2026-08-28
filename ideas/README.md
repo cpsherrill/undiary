@@ -10,6 +10,11 @@ being wrong.
   worth embedding.
 - Links between entries, model-proposed, user-confirmed.
 - The emergent-theme sweep from ADR 0004, and the promotion flow.
+- Permalinks for individual entries, so one note can be pointed at.
+- Star or bookmark on an entry: a hand-placed mark meaning "this one,"
+  filterable later alongside tags.
+- A microphone-device picker in the recorder, for browsers that guess
+  wrong about which input is a microphone.
 
 ## Future directions, deliberately parked
 

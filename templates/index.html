@@ -56,6 +56,13 @@
       <audio controls preload="none" src="{% url 'entry_audio' entry.pk %}"></audio>
     </div>
     {% endif %}
+    {% if entry.entry_tags.all %}
+    <div class="entry-tags">
+      {% for et in entry.entry_tags.all %}
+      <span class="tag-chip{% if et.tag.kind == 'watched' %} tag-watched{% endif %}">{{ et.tag.slug }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
   </article>
   {% empty %}
   <p class="empty">Nothing here yet.</p>

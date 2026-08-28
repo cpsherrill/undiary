@@ -9,6 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from . import enrichment
+
 # MediaRecorder produces webm (Chrome, Firefox) or mp4 (Safari).
 AUDIO_EXTENSIONS = {
     "audio/webm": "webm",
@@ -29,7 +31,7 @@ def index(request):
             audio_key = _store_audio(upload) if upload else ""
             tz = (request.POST.get("tz") or "UTC")[:64]
             log_date = _parse_date(request.POST.get("log_date")) or timezone.localdate()
-            request.user.entries.create(
+            entry = request.user.entries.create(
                 raw=text,
                 body=text,
                 audio_key=audio_key,
@@ -37,9 +39,10 @@ def index(request):
                 tz=tz,
                 log_date=log_date,
             )
+            enrichment.enrich_quietly(entry)
         return redirect("index")
 
-    entries = request.user.entries.all()[:50]
+    entries = request.user.entries.prefetch_related("entry_tags__tag")[:50]
     return render(request, "index.html", {"entries": entries})
 
 

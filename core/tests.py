@@ -11,7 +11,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .adapters import AllowlistSocialAdapter, promote_if_admin
-from .models import Entry
+from .enrichment import EnrichmentResult, WatchedVerdict, _apply, enrich_entry
+from .models import Entry, EntryTag, Tag
 
 User = get_user_model()
 
@@ -260,6 +261,126 @@ class EntryDeleteTests(TestCase):
         response = self.client.get(reverse("entry_delete", args=[entry.pk]))
         self.assertEqual(response.status_code, 405)
         self.assertEqual(user.entries.count(), 1)
+
+
+def result_fixture(**overrides):
+    base = dict(
+        watched=[WatchedVerdict(slug="project_idea", hit=True, excerpt="build a birdhouse")],
+        tags=["woodworking", "birds"],
+        people=["Sam"],
+        places=[],
+        projects=[],
+        summary="Considered building a birdhouse with Sam.",
+        mood="hopeful",
+    )
+    base.update(overrides)
+    return EnrichmentResult(**base)
+
+
+class EnrichmentTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        Tag.ensure_defaults(self.user)
+        self.entry = Entry.objects.create(
+            user=self.user,
+            raw="Maybe I build a birdhouse with Sam.",
+            body="Maybe I build a birdhouse with Sam.",
+            log_date=datetime.date(2026, 8, 28),
+        )
+
+    def test_apply_creates_versioned_enrichment_and_tags(self):
+        enrichment = _apply(self.entry, result_fixture(), "claude-haiku-4-5")
+        self.assertEqual(enrichment.version, 1)
+        self.assertEqual(enrichment.payload["summary"][:10], "Considered")
+        slugs = set(
+            self.entry.entry_tags.values_list("tag__slug", flat=True)
+        )
+        self.assertEqual(slugs, {"project_idea", "woodworking", "birds"})
+        watched = self.entry.entry_tags.get(tag__slug="project_idea")
+        self.assertEqual(watched.tag.kind, Tag.WATCHED)
+
+    def test_rerun_replaces_model_tags_and_keeps_user_tags(self):
+        _apply(self.entry, result_fixture(), "claude-haiku-4-5")
+        keeper = Tag.objects.create(user=self.user, slug="keeper", kind=Tag.FREE)
+        EntryTag.objects.create(entry=self.entry, tag=keeper, source=EntryTag.USER)
+
+        second = _apply(
+            self.entry,
+            result_fixture(watched=[], tags=["carpentry"]),
+            "claude-haiku-4-5",
+        )
+        self.assertEqual(second.version, 2)
+        slugs = set(self.entry.entry_tags.values_list("tag__slug", flat=True))
+        self.assertEqual(slugs, {"carpentry", "keeper"})
+        self.assertEqual(
+            self.entry.entry_tags.get(tag__slug="keeper").source, EntryTag.USER
+        )
+
+    def test_messy_free_tags_are_slugified(self):
+        _apply(
+            self.entry,
+            result_fixture(watched=[], tags=["Wood Working!", "  ", "birds"]),
+            "claude-haiku-4-5",
+        )
+        slugs = set(self.entry.entry_tags.values_list("tag__slug", flat=True))
+        self.assertEqual(slugs, {"wood_working", "birds"})
+
+    def test_audio_only_entry_is_skipped(self):
+        silent = Entry.objects.create(
+            user=self.user, audio_key="audio/x.webm", log_date=datetime.date(2026, 8, 28)
+        )
+        self.assertIsNone(enrich_entry(silent))
+        self.assertEqual(silent.enrichments.count(), 0)
+
+    def test_enrich_entry_calls_model_and_applies(self):
+        from unittest.mock import patch
+
+        with patch("core.enrichment._call_model", return_value=result_fixture()) as call:
+            enrichment = enrich_entry(self.entry)
+        self.assertEqual(enrichment.version, 1)
+        watched_arg = call.call_args.args[0]
+        self.assertEqual([t.slug for t in watched_arg], ["project_idea"])
+
+    def test_post_survives_enrichment_failure(self):
+        from unittest.mock import patch
+
+        self.client.force_login(self.user)
+        with patch("core.enrichment._call_model", side_effect=RuntimeError("api down")):
+            response = self.client.post(
+                reverse("index"), {"text": "still saved", "tz": "UTC"}
+            )
+        self.assertRedirects(response, reverse("index"))
+        self.assertTrue(self.user.entries.filter(raw="still saved").exists())
+
+    def test_enrich_pending_command_processes_unenriched_only(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        _apply(self.entry, result_fixture(), "claude-haiku-4-5")
+        Entry.objects.create(
+            user=self.user, raw="new one", body="new one",
+            log_date=datetime.date(2026, 8, 28),
+        )
+        out = StringIO()
+        with patch("core.enrichment._call_model", return_value=result_fixture()) as call:
+            call_command("enrich_pending", stdout=out)
+        self.assertEqual(call.call_count, 1)
+        self.assertIn("enriched 1", out.getvalue())
+
+    def test_ensure_defaults_is_idempotent(self):
+        Tag.ensure_defaults(self.user)
+        Tag.ensure_defaults(self.user)
+        self.assertEqual(self.user.tags.filter(slug="project_idea").count(), 1)
+
+    def test_tags_render_as_chips(self):
+        _apply(self.entry, result_fixture(), "claude-haiku-4-5")
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "tag-watched")
+        self.assertContains(response, "project_idea")
+        self.assertContains(response, "woodworking")
 
 
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])

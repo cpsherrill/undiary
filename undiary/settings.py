@@ -28,6 +28,10 @@ UNDIARY_ALLOWED_EMAILS = [
     if e.strip()
 ]
 
+# The model that reads entries. ANTHROPIC_API_KEY rides the env and is
+# picked up by the SDK itself.
+ENRICHMENT_MODEL = os.environ.get("ENRICHMENT_MODEL", "claude-haiku-4-5")
+
 # Emails that get Django admin (staff and superuser) at signup.
 UNDIARY_ADMIN_EMAILS = [
     e.strip().lower()
