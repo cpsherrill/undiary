@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Sign-in failed &middot; Undiary{% endblock %}
+
+{% block content %}
+<div class="gate">
+  <h1>That didn't take</h1>
+  <p class="gate-sub">Google and the site failed to agree just now.</p>
+  <a class="btn" href="{% url 'account_login' %}">Try again</a>
+</div>
+{% endblock %}

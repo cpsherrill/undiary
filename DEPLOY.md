@@ -60,8 +60,11 @@ pennies.
 ## Status
 
 First deploy shipped 2026-08-28; live at https://undiary.web.app with
-sign-in working. Custom domain pending (records above). Gotcha for
-next time: Firebase Hosting hands Cloud Run the request with the
-backend's own hostname in Host and the real one in X-Forwarded-Host,
-so production sets USE_X_FORWARDED_HOST; without it every page behind
-the proxy is a 400.
+sign-in working. Custom domain pending (records above). Gotchas for
+next time, both from Firebase Hosting's proxy: it hands Cloud Run the
+request with the backend's own hostname in Host and the real one in
+X-Forwarded-Host, so production sets USE_X_FORWARDED_HOST (without it
+every page is a 400); and its CDN strips every request cookie except
+one named `__session`, so the Django session cookie is renamed to
+that and the CSRF token lives in the session (without this, sign-in
+dies at the OAuth callback and every form post 403s).

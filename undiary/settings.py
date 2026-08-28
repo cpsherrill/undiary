@@ -151,6 +151,12 @@ SOCIALACCOUNT_PROVIDERS = {
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 180
 SESSION_SAVE_EVERY_REQUEST = True
 
+# Firebase Hosting's CDN strips every request cookie except one named
+# __session. The session rides in that cookie, and the CSRF token
+# rides in the session, so nothing else needs to survive the trip.
+SESSION_COOKIE_NAME = "__session"
+CSRF_USE_SESSIONS = True
+
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
