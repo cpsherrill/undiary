@@ -55,6 +55,14 @@ def index(request):
 
 
 @login_required
+def entry_detail(request, pk):
+    entry = get_object_or_404(
+        request.user.entries.prefetch_related("entry_tags__tag"), pk=pk
+    )
+    return render(request, "entry.html", {"entry": entry})
+
+
+@login_required
 def entry_audio(request, pk):
     entry = get_object_or_404(request.user.entries.exclude(audio_key=""), pk=pk)
     content_type = (

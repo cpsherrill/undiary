@@ -1,0 +1,34 @@
+<article class="entry">
+  <div class="entry-head">
+    <p class="entry-meta"><a class="entry-link" href="{% url 'entry_detail' entry.pk %}">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</a></p>
+    <div class="entry-actions">
+      <button class="dots-btn" type="button" data-menu-button
+              aria-haspopup="menu" aria-expanded="false" aria-label="Entry actions">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/>
+        </svg>
+      </button>
+      <div class="popover entry-menu" role="menu" data-menu hidden>
+        <form method="post" action="{% url 'entry_delete' entry.pk %}">
+          {% csrf_token %}
+          <button class="menu-item menu-danger" type="submit" role="menuitem"
+                  data-confirm="Really delete?">Delete entry</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaks }}</div>{% endif %}
+  {% if entry.audio_key %}
+  <div class="entry-audio">
+    <audio controls preload="none" src="{% url 'entry_audio' entry.pk %}"></audio>
+    {% if not entry.transcribed_at %}<span class="pending-note">transcript pending</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if entry.entry_tags.all %}
+  <div class="entry-tags">
+    {% for et in entry.entry_tags.all %}
+    <a class="tag-chip{% if et.tag.kind == 'watched' %} tag-watched{% endif %}" href="/?q=%23{{ et.tag.slug }}">{{ et.tag.slug }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>

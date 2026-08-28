@@ -144,6 +144,64 @@
     var startedAt = 0;
     var timer = null;
 
+    // ----- Microphone picker, for browsers that guess wrong ---------------
+
+    var micSelect = document.getElementById("mic-select");
+    var MIC_KEY = "undiary-mic";
+
+    var savedMic = function () {
+      try {
+        return localStorage.getItem(MIC_KEY) || "";
+      } catch (e) {
+        return "";
+      }
+    };
+
+    var refreshMics = function () {
+      if (!micSelect || !navigator.mediaDevices.enumerateDevices) return;
+      navigator.mediaDevices.enumerateDevices().then(function (devices) {
+        var mics = devices.filter(function (d) {
+          return d.kind === "audioinput" && d.deviceId;
+        });
+        if (mics.length < 2) {
+          micSelect.hidden = true;
+          return;
+        }
+        micSelect.innerHTML = "";
+        mics.forEach(function (mic, i) {
+          var option = document.createElement("option");
+          option.value = mic.deviceId;
+          option.textContent = mic.label || "microphone " + (i + 1);
+          micSelect.appendChild(option);
+        });
+        var saved = savedMic();
+        for (var i = 0; i < micSelect.options.length; i++) {
+          if (micSelect.options[i].value === saved) micSelect.value = saved;
+        }
+        micSelect.hidden = false;
+      });
+    };
+
+    if (micSelect) {
+      micSelect.addEventListener("change", function () {
+        try {
+          localStorage.setItem(MIC_KEY, micSelect.value);
+        } catch (e) { /* private mode */ }
+      });
+    }
+    refreshMics();
+    if (navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener("devicechange", refreshMics);
+    }
+
+    var micConstraint = function () {
+      var chosen =
+        micSelect && !micSelect.hidden && micSelect.value
+          ? micSelect.value
+          : savedMic();
+      return chosen ? { deviceId: { exact: chosen } } : true;
+    };
+
     var mimeType = "";
     ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].some(function (t) {
       if (MediaRecorder.isTypeSupported(t)) { mimeType = t; return true; }
@@ -186,8 +244,15 @@
     };
 
     var start = function () {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(
+      navigator.mediaDevices
+        .getUserMedia({ audio: micConstraint() })
+        .catch(function () {
+          // The chosen device may be unplugged; fall back to default.
+          return navigator.mediaDevices.getUserMedia({ audio: true });
+        })
+        .then(
         function (stream) {
+          refreshMics();
           chunks = [];
           recorder = new MediaRecorder(
             stream, mimeType ? { mimeType: mimeType } : undefined

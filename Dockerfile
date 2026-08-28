@@ -11,7 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Static files are baked into the image; whitenoise serves them.
-RUN SECRET_KEY=build-time-only python manage.py collectstatic --noinput
+# DEBUG=0 so the hashed manifest the production settings expect exists.
+RUN SECRET_KEY=build-time-only DEBUG=0 python manage.py collectstatic --noinput
 
 # Cloud Run provides PORT.
 CMD exec gunicorn undiary.wsgi:application \

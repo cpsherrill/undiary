@@ -166,6 +166,29 @@ main {
   font-size: 0.82rem;
 }
 .rec-preview { width: 13rem; height: 2.1rem; }
+
+.mic-select {
+  max-width: 11rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entry-link {
+  color: var(--muted);
+  text-decoration: none;
+}
+.entry-link:hover { color: var(--accent); }
+
+.entry-detail { border-bottom: 1px solid var(--border); }
+
+.back-link { margin-top: 1.5rem; font-size: 0.95rem; }
 .rec-status[data-attached] { color: var(--text); }
 
 .rec-discard {

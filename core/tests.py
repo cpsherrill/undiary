@@ -488,6 +488,40 @@ class TranscriptionTests(TestCase):
         self.assertIsNone(entry.transcribed_at)
 
 
+class EntryDetailTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.entry = Entry.objects.create(
+            user=self.user,
+            raw="A permalinked thought.",
+            body="A permalinked thought.",
+            log_date=datetime.date(2026, 8, 28),
+        )
+
+    def test_owner_sees_their_entry(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("entry_detail", args=[self.entry.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A permalinked thought.")
+
+    def test_stranger_gets_404(self):
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        response = self.client.get(reverse("entry_detail", args=[self.entry.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_is_sent_to_sign_in(self):
+        response = self.client.get(reverse("entry_detail", args=[self.entry.pk]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_index_links_each_entry(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(
+            response, reverse("entry_detail", args=[self.entry.pk])
+        )
+
+
 class SearchTests(TestCase):
     def setUp(self):
         self.user = make_user()

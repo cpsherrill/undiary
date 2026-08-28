@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entry.log_date|date:"Y-m-d" }} &middot; Undiary{% endblock %}
+
+{% block content %}
+<section class="entries entry-detail">
+  {% include "_entry.html" with entry=entry %}
+</section>
+<p class="back-link"><a href="/">All entries</a></p>
+<script src="/static/app.js"></script>
+{% endblock %}
