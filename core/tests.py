@@ -383,6 +383,102 @@ class EnrichmentTests(TestCase):
         self.assertContains(response, "woodworking")
 
 
+class SearchTests(TestCase):
+    def setUp(self):
+        self.user = make_user()
+        self.birdhouse = Entry.objects.create(
+            user=self.user,
+            raw="The birdhouse gains a roof today.",
+            body="The birdhouse gains a roof today.",
+            log_date=datetime.date(2026, 8, 27),
+        )
+        self.groceries = Entry.objects.create(
+            user=self.user,
+            raw="Groceries and rain.",
+            body="Groceries and rain.",
+            log_date=datetime.date(2026, 8, 28),
+        )
+        self.idea_tag = Tag.objects.create(
+            user=self.user, slug="project_idea", kind=Tag.WATCHED
+        )
+        self.wood_tag = Tag.objects.create(user=self.user, slug="woodworking")
+        EntryTag.objects.create(entry=self.birdhouse, tag=self.idea_tag)
+        EntryTag.objects.create(entry=self.birdhouse, tag=self.wood_tag)
+
+    def test_parse_query_splits_tags_from_text(self):
+        from .search import parse_query
+
+        text, tags = parse_query("birdhouse #project_idea roof #Birds")
+        self.assertEqual(text, "birdhouse roof")
+        self.assertEqual(tags, ["project_idea", "birds"])
+
+    def test_text_search_matches_body(self):
+        from .search import search_entries
+
+        results = list(search_entries(self.user, "BIRDHOUSE"))
+        self.assertEqual(results, [self.birdhouse])
+
+    def test_tag_search(self):
+        from .search import search_entries
+
+        results = list(search_entries(self.user, "#project_idea"))
+        self.assertEqual(results, [self.birdhouse])
+
+    def test_text_and_tag_compose(self):
+        from .search import search_entries
+
+        self.assertEqual(
+            list(search_entries(self.user, "roof #project_idea")), [self.birdhouse]
+        )
+        self.assertEqual(
+            list(search_entries(self.user, "rain #project_idea")), []
+        )
+
+    def test_multiple_tags_are_anded(self):
+        from .search import search_entries
+
+        lonely = Tag.objects.create(user=self.user, slug="rain")
+        EntryTag.objects.create(entry=self.groceries, tag=lonely)
+        self.assertEqual(
+            list(search_entries(self.user, "#project_idea #woodworking")),
+            [self.birdhouse],
+        )
+        self.assertEqual(
+            list(search_entries(self.user, "#project_idea #rain")), []
+        )
+
+    def test_search_is_scoped_to_user(self):
+        from .search import search_entries
+
+        other = make_user("other@example.com")
+        Entry.objects.create(
+            user=other,
+            raw="Another birdhouse entirely.",
+            body="Another birdhouse entirely.",
+            log_date=datetime.date(2026, 8, 28),
+        )
+        self.assertEqual(
+            list(search_entries(self.user, "birdhouse")), [self.birdhouse]
+        )
+
+    def test_view_renders_results_and_count(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"), {"q": "birdhouse"})
+        self.assertContains(response, "1 match")
+        self.assertContains(response, "The birdhouse gains a roof")
+        self.assertNotContains(response, "Groceries and rain")
+
+    def test_chips_link_into_search(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, 'href="/?q=%23project_idea"')
+
+    def test_no_match_says_so(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"), {"q": "zeppelin"})
+        self.assertContains(response, "Nothing matches.")
+
+
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])
 class AdminPromotionTests(TestCase):
     def test_admin_email_gets_staff_and_superuser(self):

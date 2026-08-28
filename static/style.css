@@ -199,7 +199,9 @@ main {
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem;
+  text-decoration: none;
 }
+a.tag-chip:hover { border-color: var(--accent); color: var(--accent); }
 .tag-chip.tag-watched {
   border-color: var(--accent);
   background: var(--accent-wash);
@@ -293,9 +295,41 @@ button[type="submit"]:hover, .btn:hover {
   color: var(--accent);
 }
 
+/* ---- Search ---- */
+
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 2.25rem;
+}
+.search-form input[type="search"] {
+  flex: 1;
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.search-form input[type="search"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.search-clear {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.search-note {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 /* ---- Entries ---- */
 
-.entries { margin-top: 2.25rem; }
+.entries { margin-top: 1.1rem; }
 
 .entry { padding: 1rem 0; }
 .entry + .entry { border-top: 1px solid var(--border); }

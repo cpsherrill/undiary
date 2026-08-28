@@ -29,7 +29,16 @@
   </div>
 </form>
 
-<section class="entries">
+<form method="get" class="search-form" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search, or #tag"
+         aria-label="Search entries">
+  {% if q %}<a class="search-clear" href="/">clear</a>{% endif %}
+</form>
+{% if q %}
+<p class="search-note">{{ entries|length }} match{{ entries|length|pluralize:"es" }}</p>
+{% endif %}
+
+<section class="entries{% if q %} entries-searching{% endif %}">
   {% for entry in entries %}
   <article class="entry">
     <div class="entry-head">
@@ -59,13 +68,13 @@
     {% if entry.entry_tags.all %}
     <div class="entry-tags">
       {% for et in entry.entry_tags.all %}
-      <span class="tag-chip{% if et.tag.kind == 'watched' %} tag-watched{% endif %}">{{ et.tag.slug }}</span>
+      <a class="tag-chip{% if et.tag.kind == 'watched' %} tag-watched{% endif %}" href="/?q=%23{{ et.tag.slug }}">{{ et.tag.slug }}</a>
       {% endfor %}
     </div>
     {% endif %}
   </article>
   {% empty %}
-  <p class="empty">Nothing here yet.</p>
+  <p class="empty">{% if q %}Nothing matches.{% else %}Nothing here yet.{% endif %}</p>
   {% endfor %}
 </section>
 
