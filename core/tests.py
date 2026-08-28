@@ -241,8 +241,17 @@ class EntryDeleteTests(TestCase):
         stranger = make_user("stranger@example.com")
         self.client.force_login(stranger)
         response = self.client.post(reverse("entry_delete", args=[entry.pk]))
-        self.assertEqual(response.status_code, 404)
+        self.assertRedirects(response, reverse("index"))
         self.assertEqual(owner.entries.count(), 1)
+
+    def test_double_delete_quietly_succeeds(self):
+        user = make_user()
+        entry = self._entry(user)
+        self.client.force_login(user)
+        self.client.post(reverse("entry_delete", args=[entry.pk]))
+        response = self.client.post(reverse("entry_delete", args=[entry.pk]))
+        self.assertRedirects(response, reverse("index"))
+        self.assertEqual(user.entries.count(), 0)
 
     def test_get_is_not_allowed(self):
         user = make_user()

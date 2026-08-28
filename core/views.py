@@ -57,16 +57,21 @@ def entry_audio(request, pk):
 @login_required
 @require_POST
 def entry_delete(request, pk):
-    entry = get_object_or_404(request.user.entries, pk=pk)
-    audio_key = entry.audio_key
-    entry.delete()
-    if audio_key:
-        try:
-            default_storage.delete(audio_key)
-        except Exception:
-            # The row is gone either way; an orphaned blob is the
-            # cheaper failure, so cleanup stays best-effort.
-            pass
+    # Quietly succeed when the entry is already gone (double-submits,
+    # refreshes): the goal state is reached either way. Filtering by
+    # owner also means other users' entries are indistinguishable from
+    # deleted ones.
+    entry = request.user.entries.filter(pk=pk).first()
+    if entry:
+        audio_key = entry.audio_key
+        entry.delete()
+        if audio_key:
+            try:
+                default_storage.delete(audio_key)
+            except Exception:
+                # The row is gone either way; an orphaned blob is the
+                # cheaper failure, so cleanup stays best-effort.
+                pass
     return redirect("index")
 
 

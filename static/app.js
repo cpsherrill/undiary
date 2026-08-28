@@ -60,6 +60,11 @@
       confirmBtn.setAttribute("data-armed", "");
       return;
     }
+    if (confirmBtn) {
+      // Armed: this click submits. Disable after the submit event has
+      // fired so a double-click cannot post twice.
+      setTimeout(function () { confirmBtn.disabled = true; }, 0);
+    }
     var menuBtn = e.target.closest("[data-menu-button]");
     if (menuBtn) {
       var menu = menuBtn.parentElement.querySelector("[data-menu]");
