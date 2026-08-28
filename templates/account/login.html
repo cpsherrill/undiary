@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+
+{% block title %}Sign in &middot; Undiary{% endblock %}
+
+{% block content %}
+<div class="gate">
+  <h1>Undiary</h1>
+  <p class="gate-sub">The diary you don't keep.</p>
+  <a class="btn" href="{% provider_login_url 'google' %}">Sign in with Google</a>
+</div>
+{% endblock %}

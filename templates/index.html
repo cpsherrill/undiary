@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form method="post" class="log-form">
+  {% csrf_token %}
+  <div class="log-meta">
+    <input type="date" name="log_date" id="log-date" aria-label="Log date">
+    <span id="log-clock" class="log-clock"></span>
+    <input type="hidden" name="tz" id="tz" value="UTC">
+  </div>
+  <textarea name="text" rows="5" autofocus aria-label="New entry"></textarea>
+  <div class="log-actions">
+    <button type="submit">Log</button>
+  </div>
+</form>
+
+<section class="entries">
+  {% for entry in entries %}
+  <article class="entry">
+    <p class="entry-meta">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</p>
+    <div class="entry-body">{{ entry.body|linebreaks }}</div>
+  </article>
+  {% empty %}
+  <p class="empty">Nothing here yet.</p>
+  {% endfor %}
+</section>
+
+<script src="/static/app.js"></script>
+{% endblock %}

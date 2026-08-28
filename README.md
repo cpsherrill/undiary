@@ -46,7 +46,19 @@ this repo, that is a bug; please say so.
 
 ## Run it
 
-Nothing runs yet. This section will earn its heading.
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py runserver
+```
+
+Then http://localhost:8000. Signing in with Google needs OAuth
+credentials in `.env` (copy `.env.example` and follow its comments).
+Until those exist, `manage.py createsuperuser` plus `/admin/` gets you
+a local session, which is enough to log entries.
+
+Tests: `.venv/bin/python manage.py test`.
 
 ## License
 

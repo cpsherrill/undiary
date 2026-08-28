@@ -1,0 +1,4 @@
+Django>=5.2,<6.0
+django-allauth[socialaccount]>=65.0
+dj-database-url>=2.0
+python-dotenv>=1.0
