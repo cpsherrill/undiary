@@ -52,6 +52,31 @@ main {
 }
 .quiet:hover { color: var(--accent); }
 
+/* Signed-in identity, upper right. */
+.who {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.who-avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+.who-id {
+  color: var(--muted);
+  font-size: 0.85rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 540px) {
+  .who-id { max-width: 8rem; }
+}
+
 /* ---- The log form ---- */
 
 .log-form { padding-top: 1.5rem; }

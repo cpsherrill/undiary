@@ -12,10 +12,19 @@
   <header class="site-header">
     <span class="brand">Undiary</span>
     {% if user.is_authenticated %}
-    <form method="post" action="{% url 'account_logout' %}">
-      {% csrf_token %}
-      <button class="quiet" type="submit">Sign out</button>
-    </form>
+    <div class="who">
+      {% with sa=user.socialaccount_set.all|first %}
+      {% if sa.extra_data.picture %}
+      <img class="who-avatar" src="{{ sa.extra_data.picture }}" alt=""
+           referrerpolicy="no-referrer" title="{{ user.email }}">
+      {% endif %}
+      {% endwith %}
+      <span class="who-id">{{ user.email|default:user.username }}</span>
+      <form method="post" action="{% url 'account_logout' %}">
+        {% csrf_token %}
+        <button class="quiet" type="submit">Sign out</button>
+      </form>
+    </div>
     {% endif %}
   </header>
   <main>

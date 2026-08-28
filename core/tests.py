@@ -92,6 +92,26 @@ class IndexViewTests(TestCase):
         )
         self.assertEqual(user.entries.get().log_date, timezone.localdate())
 
+    def test_header_shows_signed_in_identity(self):
+        user = make_user()
+        self.client.force_login(user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "colin@example.com")
+
+    def test_header_shows_google_avatar_when_present(self):
+        from allauth.socialaccount.models import SocialAccount
+
+        user = make_user()
+        SocialAccount.objects.create(
+            user=user,
+            provider="google",
+            uid="123",
+            extra_data={"picture": "https://lh3.example.com/photo.jpg"},
+        )
+        self.client.force_login(user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "https://lh3.example.com/photo.jpg")
+
     def test_entries_are_the_users_own(self):
         user = make_user()
         other = make_user("other@example.com")
