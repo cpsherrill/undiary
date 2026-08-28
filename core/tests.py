@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .adapters import AllowlistSocialAdapter
+from .adapters import AllowlistSocialAdapter, promote_if_admin
 from .models import Entry
 
 User = get_user_model()
@@ -123,3 +123,20 @@ class AllowlistTests(TestCase):
         self.assertFalse(
             adapter.is_open_for_signup(None, self._sociallogin("stranger@example.com"))
         )
+
+
+@override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])
+class AdminPromotionTests(TestCase):
+    def test_admin_email_gets_staff_and_superuser(self):
+        user = make_user("colin@example.com")
+        promote_if_admin(user)
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+
+    def test_other_allowlisted_email_stays_regular(self):
+        user = make_user("other@example.com")
+        promote_if_admin(user)
+        user.refresh_from_db()
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)

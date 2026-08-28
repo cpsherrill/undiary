@@ -28,6 +28,13 @@ UNDIARY_ALLOWED_EMAILS = [
     if e.strip()
 ]
 
+# Emails that get Django admin (staff and superuser) at signup.
+UNDIARY_ADMIN_EMAILS = [
+    e.strip().lower()
+    for e in os.environ.get("UNDIARY_ADMIN_EMAILS", "").split(",")
+    if e.strip()
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
