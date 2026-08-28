@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "undiary",
+    "public": "hosting",
+    "ignore": ["**/.*"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": { "serviceId": "undiary", "region": "us-east4" }
+      }
+    ]
+  }
+}

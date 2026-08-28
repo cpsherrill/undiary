@@ -149,3 +149,6 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # Firebase Hosting fronts Cloud Run and carries the real hostname
+    # in X-Forwarded-Host; the Host header is the run.app backend.
+    USE_X_FORWARDED_HOST = True
