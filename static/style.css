@@ -41,7 +41,12 @@ main {
   border-bottom: 1px solid var(--border);
 }
 
-.brand { font-weight: 650; }
+.brand {
+  font-weight: 650;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand:hover { color: var(--accent); }
 
 .quiet {
   border: 0;
