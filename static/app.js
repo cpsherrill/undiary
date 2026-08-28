@@ -83,6 +83,50 @@
     if (e.key === "Escape") closeMenus();
   });
 
+  // ----- The log form: one submit only, and a keyboard shortcut -----------
+
+  var logForm = document.querySelector(".log-form");
+  if (logForm) {
+    var logBtn = logForm.querySelector('button[type="submit"]');
+
+    logForm.addEventListener("submit", function (e) {
+      if (logForm.hasAttribute("data-submitting")) {
+        e.preventDefault();
+        return;
+      }
+      logForm.setAttribute("data-submitting", "");
+      if (logBtn) {
+        logBtn.disabled = true;
+        logBtn.textContent = "Logging…";
+      }
+    });
+
+    // Cmd+Enter (Ctrl+Enter off Mac) logs the entry. While a recording
+    // is running it stops the recording instead, so nothing half-said
+    // gets submitted.
+    logForm.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      var rec = document.getElementById("rec");
+      if (rec && rec.hasAttribute("data-recording")) {
+        rec.click();
+        return;
+      }
+      logForm.requestSubmit();
+    });
+
+    // Back-forward cache restores the page mid-"Logging"; reset it.
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) {
+        logForm.removeAttribute("data-submitting");
+        if (logBtn) {
+          logBtn.disabled = false;
+          logBtn.textContent = "Log";
+        }
+      }
+    });
+  }
+
   // ----- Audio recorder ----------------------------------------------------
 
   var recBtn = document.getElementById("rec");
