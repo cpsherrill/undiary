@@ -51,6 +51,18 @@ After the domain resolves, add
 `https://undiary.com/accounts/google/login/callback/` to the OAuth
 client (Google Auth Platform, Clients).
 
+## Enrichment operations
+
+The Anthropic key lives in Secret Manager as `anthropic-api-key`,
+mounted on the service and both jobs. The sweep:
+
+- Cloud Run job `undiary-enrich` runs `manage.py enrich_pending`
+  (add `--args` overrides for `--all` when the watchlist changes).
+- Cloud Scheduler `undiary-enrich-sweep` fires it every 15 minutes as
+  the backstop; the inline pass after each save does the normal work.
+- After a code deploy, point both jobs at the new image (same command
+  as the migrate job's update, swapping the job name).
+
 ## Costs
 
 Cloud SQL is the only real line item (db-f1-micro, roughly ten dollars
