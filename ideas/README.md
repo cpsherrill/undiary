@@ -15,9 +15,11 @@ being wrong.
   diary's proper nouns (Crowable, not crawlable). Speech adaptation
   fed by the corpus, or a cleanup pass by the enrichment model, or
   both.
-- A PWA: manifest, icon, offline shell. Undiary installs to the phone
-  home screen, capture works in a dead zone, and entries sync when
-  the network returns. The captain does not check for signal.
+- The PWA's second half: an offline capture queue, so entries written
+  in a dead zone sync when the network returns. The captain does not
+  check for signal. (The first half shipped 2026-08-28: manifest,
+  icons, service worker, offline page; the app installs to a home
+  screen.)
 - Permalinks for individual entries, so one note can be pointed at.
 - Star or bookmark on an entry: a hand-placed mark meaning "this one,"
   filterable later alongside tags.

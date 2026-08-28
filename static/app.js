@@ -4,6 +4,14 @@
 (function () {
   "use strict";
 
+  // ----- Service worker (installability, offline shell) --------------------
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(function () {
+      /* no worker, no harm */
+    });
+  }
+
   // ----- Date, clock, timezone prefill ------------------------------------
 
   var tz = "UTC";

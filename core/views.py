@@ -4,7 +4,7 @@ import uuid
 
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -71,6 +71,19 @@ def entry_audio(request, pk):
     return FileResponse(
         default_storage.open(entry.audio_key), content_type=content_type
     )
+
+
+def offline(request):
+    return render(request, "offline.html")
+
+
+def service_worker(request):
+    # Served at /sw.js so its scope covers the whole origin.
+    from django.contrib.staticfiles import finders
+
+    with open(finders.find("sw.js")) as f:
+        source = f.read()
+    return HttpResponse(source, content_type="text/javascript")
 
 
 @login_required

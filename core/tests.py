@@ -488,6 +488,24 @@ class TranscriptionTests(TestCase):
         self.assertIsNone(entry.transcribed_at)
 
 
+class PwaTests(TestCase):
+    def test_manifest_is_linked(self):
+        response = self.client.get("/accounts/login/")
+        self.assertContains(response, 'rel="manifest"')
+        self.assertContains(response, "apple-touch-icon")
+
+    def test_service_worker_served_at_root_scope(self):
+        response = self.client.get("/sw.js")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/javascript")
+        self.assertIn("navigate", response.content.decode())
+
+    def test_offline_page_is_public(self):
+        response = self.client.get(reverse("offline"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The log will keep.")
+
+
 class EntryDetailTests(TestCase):
     def setUp(self):
         self.user = make_user()
