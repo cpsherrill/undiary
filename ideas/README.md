@@ -10,4 +10,11 @@ being wrong.
   worth embedding.
 - Links between entries, model-proposed, user-confirmed.
 - The emergent-theme sweep from ADR 0004, and the promotion flow.
-- The markdown mirror exporter, and where the private vault lives.
+
+## Future directions, deliberately parked
+
+- The markdown mirror: one file per entry, frontmatter and all, into a
+  private vault, making Obsidian a reading room over the archive.
+  Parked 2026-08-28; capture, enrichment, and deploy come first. The
+  design keeps its seat in CONTEXT.md and ADR 0001 for when it's
+  called.

@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+.claude
+.DS_Store
+__pycache__
+*.pyc
+db.sqlite3
+staticfiles
+docs
+ideas
+*.md
