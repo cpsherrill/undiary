@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Undiary: the log. You log an entry; the captain keeps a log. -->
+  <!-- Body, rounded right end. -->
+  <path d="M34 41 H96 C111 41 121 51 121 64 C121 77 111 87 96 87 H34 Z"
+        fill="#a1672e" stroke="#5d3a16" stroke-width="7" stroke-linejoin="round"/>
+  <!-- Bark streaks. -->
+  <path d="M58 54 h16 M76 74 h14 M52 66 h10" stroke="#5d3a16" stroke-width="5.5"
+        stroke-linecap="round" fill="none" opacity="0.55"/>
+  <!-- Cut face with rings. -->
+  <ellipse cx="34" cy="64" rx="19" ry="23" fill="#eec78f"
+           stroke="#5d3a16" stroke-width="7"/>
+  <ellipse cx="34" cy="64" rx="10.5" ry="13.5" fill="none"
+           stroke="#c9995c" stroke-width="4.5"/>
+  <circle cx="34" cy="64" r="3.5" fill="#c9995c"/>
+</svg>
