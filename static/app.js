@@ -101,6 +101,21 @@
     }
   };
 
+  // On touch devices the share sheet is the only reliable path (its
+  // Copy button is the real clipboard on iOS), and it must be called
+  // synchronously in the tap: WebKit's gesture budget does not survive
+  // a rejected promise. Desktops keep the clipboard with its flashes.
+  var shareFirst = !!(
+    navigator.share &&
+    window.matchMedia &&
+    matchMedia("(any-pointer: coarse)").matches
+  );
+  if (shareFirst) {
+    document.querySelectorAll("[data-copy-link]").forEach(function (btn) {
+      btn.textContent = "Share link";
+    });
+  }
+
   document.addEventListener("click", function (e) {
     var copyBtn = e.target.closest("[data-copy-link]");
     if (copyBtn) {
@@ -110,23 +125,16 @@
         copyBtn.textContent = message;
         setTimeout(closeMenus, 900);
       };
-      if (legacyCopy(link)) {
+      if (shareFirst) {
+        navigator.share({ url: link }).catch(function () {});
+        closeMenus();
+      } else if (legacyCopy(link)) {
         flash("Copied");
       } else if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(
           function () { flash("Copied"); },
-          function () {
-            if (navigator.share) {
-              navigator.share({ url: link }).catch(function () {});
-              closeMenus();
-            } else {
-              flash("Copy failed");
-            }
-          }
+          function () { flash("Copy failed"); }
         );
-      } else if (navigator.share) {
-        navigator.share({ url: link }).catch(function () {});
-        closeMenus();
       } else {
         flash("Copy failed");
       }
