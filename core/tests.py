@@ -450,6 +450,46 @@ class TranscriptionTests(TestCase):
         self.assertEqual(entry.body, "I spoke words.")
         self.assertIsNotNone(entry.transcribed_at)
 
+    def test_long_audio_falls_back_to_segmentation(self):
+        from unittest.mock import patch
+
+        from google.api_core.exceptions import InvalidArgument
+
+        from .transcription import transcribe_entry
+
+        entry = self._audio_entry()
+        with patch(
+            "core.transcription._recognize",
+            side_effect=InvalidArgument("Audio can be of a maximum of 60 seconds."),
+        ), patch(
+            "core.transcription._recognize_segmented",
+            return_value="a long thought, stitched",
+        ) as seg:
+            transcribe_entry(entry)
+        entry.refresh_from_db()
+        self.assertTrue(seg.called)
+        self.assertEqual(entry.transcript, "a long thought, stitched")
+
+    def test_segmentation_failure_leaves_entry_pending(self):
+        from unittest.mock import patch
+
+        from google.api_core.exceptions import InvalidArgument
+
+        from .transcription import transcribe_entry
+
+        entry = self._audio_entry()
+        with patch(
+            "core.transcription._recognize",
+            side_effect=InvalidArgument("nope"),
+        ), patch(
+            "core.transcription._recognize_segmented",
+            side_effect=RuntimeError("ffmpeg missing"),
+        ):
+            with self.assertRaises(RuntimeError):
+                transcribe_entry(entry)
+        entry.refresh_from_db()
+        self.assertIsNone(entry.transcribed_at)
+
     def test_typed_body_is_not_overwritten(self):
         from unittest.mock import patch
 

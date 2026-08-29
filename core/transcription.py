@@ -27,11 +27,11 @@ def transcribe_entry(entry):
 
     try:
         text = _recognize(data)
-    except _too_long_errors() as exc:
-        if not settings.GS_BUCKET_NAME:
-            raise
-        logger.info("sync recognition declined (%s); using batch", exc)
-        text = _batch_recognize(f"gs://{settings.GS_BUCKET_NAME}/{entry.audio_key}")
+    except _sync_declined_errors() as exc:
+        # Too long or an undecodable container: transcode to mono FLAC,
+        # split under the sync limit, and recognize the pieces.
+        logger.info("sync recognition declined (%s); segmenting", exc)
+        text = _recognize_segmented(data)
 
     entry.transcript = text
     entry.transcribed_at = timezone.now()
@@ -53,7 +53,7 @@ def transcribe_quietly(entry):
 # ---- Speech-to-Text v2 plumbing --------------------------------------
 
 
-def _too_long_errors():
+def _sync_declined_errors():
     from google.api_core.exceptions import InvalidArgument
 
     return InvalidArgument
@@ -102,21 +102,33 @@ def _recognize(data):
     return _join(response.results)
 
 
-def _batch_recognize(gcs_uri):
-    from google.cloud.speech_v2 import SpeechClient
-    from google.cloud.speech_v2.types import cloud_speech
+def _recognize_segmented(data):
+    """ffmpeg decodes anything, so anything becomes sub-limit mono
+    FLAC segments; each is recognized with our own credentials. No
+    service agents, no swallowed per-file errors."""
+    import glob
+    import pathlib
+    import subprocess
+    import tempfile
 
-    client = SpeechClient()
-    operation = client.batch_recognize(
-        request=cloud_speech.BatchRecognizeRequest(
-            recognizer=_recognizer(),
-            config=_config(),
-            files=[cloud_speech.BatchRecognizeFileMetadata(uri=gcs_uri)],
-            recognition_output_config=cloud_speech.RecognitionOutputConfig(
-                inline_response_config=cloud_speech.InlineOutputConfig()
-            ),
+    with tempfile.TemporaryDirectory() as td:
+        src = pathlib.Path(td) / "src.audio"
+        src.write_bytes(data)
+        subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-i", str(src),
+                "-ac", "1", "-ar", "16000",
+                "-f", "segment", "-segment_time", "55", "-y",
+                str(pathlib.Path(td) / "seg%03d.flac"),
+            ],
+            check=True,
+            capture_output=True,
         )
-    )
-    result = operation.result(timeout=600)
-    file_result = next(iter(result.results.values()))
-    return _join(file_result.transcript.results)
+        segments = sorted(glob.glob(str(pathlib.Path(td) / "seg*.flac")))
+        if not segments:
+            raise RuntimeError("ffmpeg produced no segments")
+        parts = [
+            _recognize(pathlib.Path(seg).read_bytes()) for seg in segments
+        ]
+    return " ".join(p for p in parts if p).strip()
