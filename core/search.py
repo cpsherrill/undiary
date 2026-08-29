@@ -13,19 +13,24 @@ from django.db import connection
 from django.db.models import Q
 
 TAG_TOKEN = re.compile(r"#([A-Za-z0-9_]+)")
+STAR_TOKEN = re.compile(r"\bis:starred\b", re.IGNORECASE)
 
 
 def parse_query(q):
     q = (q or "").strip()
+    starred = bool(STAR_TOKEN.search(q))
+    q = STAR_TOKEN.sub(" ", q)
     tags = [t.lower() for t in TAG_TOKEN.findall(q)]
     text = TAG_TOKEN.sub(" ", q)
     text = re.sub(r"\s+", " ", text).strip()
-    return text, tags
+    return text, tags, starred
 
 
 def search_entries(user, q):
-    text, tags = parse_query(q)
+    text, tags, starred = parse_query(q)
     entries = user.entries.all()
+    if starred:
+        entries = entries.filter(starred=True)
 
     # Each chained filter is its own join, so several tags mean AND.
     for slug in tags:

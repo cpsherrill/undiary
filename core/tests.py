@@ -611,6 +611,36 @@ class EntryDetailTests(TestCase):
             response, reverse("entry_detail", args=[self.entry.pk])
         )
 
+    def test_menu_offers_star_and_copy_link(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, ">Star</button>")
+        self.assertContains(response, "data-copy-link")
+
+    def test_star_toggles_and_shows_mark(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse("entry_star", args=[self.entry.pk]))
+        self.entry.refresh_from_db()
+        self.assertTrue(self.entry.starred)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "star-mark")
+        self.assertContains(response, ">Unstar</button>")
+        self.client.post(reverse("entry_star", args=[self.entry.pk]))
+        self.entry.refresh_from_db()
+        self.assertFalse(self.entry.starred)
+
+    def test_stranger_cannot_star(self):
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        self.client.post(reverse("entry_star", args=[self.entry.pk]))
+        self.entry.refresh_from_db()
+        self.assertFalse(self.entry.starred)
+
+    def test_star_requires_post(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("entry_star", args=[self.entry.pk]))
+        self.assertEqual(response.status_code, 405)
+
 
 class SearchTests(TestCase):
     def setUp(self):
@@ -637,9 +667,30 @@ class SearchTests(TestCase):
     def test_parse_query_splits_tags_from_text(self):
         from .search import parse_query
 
-        text, tags = parse_query("birdhouse #project_idea roof #Birds")
+        text, tags, starred = parse_query("birdhouse #project_idea roof #Birds")
         self.assertEqual(text, "birdhouse roof")
         self.assertEqual(tags, ["project_idea", "birds"])
+        self.assertFalse(starred)
+
+    def test_parse_query_reads_is_starred(self):
+        from .search import parse_query
+
+        text, tags, starred = parse_query("is:starred roof #birds")
+        self.assertTrue(starred)
+        self.assertEqual(text, "roof")
+        self.assertEqual(tags, ["birds"])
+
+    def test_starred_filter_composes(self):
+        from .search import search_entries
+
+        self.birdhouse.starred = True
+        self.birdhouse.save()
+        self.assertEqual(
+            list(search_entries(self.user, "is:starred")), [self.birdhouse]
+        )
+        self.assertEqual(
+            list(search_entries(self.user, "is:starred rain")), []
+        )
 
     def test_text_search_matches_body(self):
         from .search import search_entries

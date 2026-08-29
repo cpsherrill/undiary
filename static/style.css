@@ -186,6 +186,13 @@ main {
 }
 .entry-link:hover { color: var(--accent); }
 
+.star-mark {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+.star-mark:hover { text-decoration: none; }
+
 .entry-detail { border-bottom: 1px solid var(--border); }
 
 .back-link { margin-top: 1.5rem; font-size: 0.95rem; }

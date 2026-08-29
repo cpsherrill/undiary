@@ -57,9 +57,33 @@
       btn.textContent = btn.dataset.label;
       btn.removeAttribute("data-armed");
     });
+    document.querySelectorAll("[data-copy-link]").forEach(function (btn) {
+      if (btn.dataset.label) {
+        btn.textContent = btn.dataset.label;
+        delete btn.dataset.label;
+      }
+    });
   };
 
   document.addEventListener("click", function (e) {
+    var copyBtn = e.target.closest("[data-copy-link]");
+    if (copyBtn) {
+      var link = location.origin + copyBtn.getAttribute("data-copy-link");
+      if (!copyBtn.dataset.label) copyBtn.dataset.label = copyBtn.textContent;
+      var flash = function (message) {
+        copyBtn.textContent = message;
+        setTimeout(closeMenus, 900);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(
+          function () { flash("Copied"); },
+          function () { flash("Copy failed"); }
+        );
+      } else {
+        flash("Copy failed");
+      }
+      return;
+    }
     var confirmBtn = e.target.closest("[data-confirm]");
     if (confirmBtn && !confirmBtn.hasAttribute("data-armed")) {
       e.preventDefault();

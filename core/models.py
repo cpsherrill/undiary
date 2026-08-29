@@ -35,6 +35,9 @@ class Entry(models.Model):
     tz = models.CharField(max_length=64, default="UTC")
     log_date = models.DateField()
 
+    # A hand-placed mark meaning "this one." User judgment is capture.
+    starred = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(auto_now=True)
 

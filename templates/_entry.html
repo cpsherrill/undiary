@@ -1,6 +1,6 @@
 <article class="entry">
   <div class="entry-head">
-    <p class="entry-meta"><a class="entry-link" href="{% url 'entry_detail' entry.pk %}">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</a></p>
+    <p class="entry-meta">{% if entry.starred %}<a class="star-mark" href="/?q=is%3Astarred" title="Starred; click for all starred entries">&#9733;</a> {% endif %}<a class="entry-link" href="{% url 'entry_detail' entry.pk %}">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</a></p>
     <div class="entry-actions">
       <button class="dots-btn" type="button" data-menu-button
               aria-haspopup="menu" aria-expanded="false" aria-label="Entry actions">
@@ -9,6 +9,12 @@
         </svg>
       </button>
       <div class="popover entry-menu" role="menu" data-menu hidden>
+        <form method="post" action="{% url 'entry_star' entry.pk %}">
+          {% csrf_token %}
+          <button class="menu-item" type="submit" role="menuitem">{% if entry.starred %}Unstar{% else %}Star{% endif %}</button>
+        </form>
+        <button class="menu-item" type="button" role="menuitem"
+                data-copy-link="{% url 'entry_detail' entry.pk %}">Copy link</button>
         <form method="post" action="{% url 'entry_delete' entry.pk %}">
           {% csrf_token %}
           <button class="menu-item menu-danger" type="submit" role="menuitem"

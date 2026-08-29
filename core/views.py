@@ -89,6 +89,19 @@ def service_worker(request):
 
 @login_required
 @require_POST
+def entry_star(request, pk):
+    entry = request.user.entries.filter(pk=pk).first()
+    if entry:
+        entry.starred = not entry.starred
+        entry.save(update_fields=["starred", "edited_at"])
+    referer = request.headers.get("Referer", "")
+    if referer.startswith(request.build_absolute_uri("/")):
+        return redirect(referer)
+    return redirect("index")
+
+
+@login_required
+@require_POST
 def entry_delete(request, pk):
     # Quietly succeed when the entry is already gone (double-submits,
     # refreshes): the goal state is reached either way. Filtering by
