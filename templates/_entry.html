@@ -21,7 +21,7 @@
   {% if entry.audio_key %}
   <div class="entry-audio">
     <audio controls preload="none" src="{% url 'entry_audio' entry.pk %}"></audio>
-    {% if not entry.transcribed_at %}<span class="pending-note">transcript pending</span>{% endif %}
+    {% if not entry.transcribed_at %}<span class="pending-note">transcript pending</span>{% elif not entry.transcript and not entry.body %}<span class="pending-note">no speech found</span>{% endif %}
   </div>
   {% endif %}
   {% if entry.entry_tags.all %}
