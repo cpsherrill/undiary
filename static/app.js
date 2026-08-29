@@ -12,6 +12,21 @@
     });
   }
 
+  // An installed app resumes the page it fell asleep on, sometimes days
+  // old. On waking stale, reload; never while a draft is in progress.
+  var loadedAt = Date.now();
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (Date.now() - loadedAt < 5 * 60 * 1000) return;
+    var ta = document.querySelector(".log-form textarea");
+    var fileInput = document.getElementById("audio-input");
+    var drafting =
+      (ta && ta.value.trim()) ||
+      (fileInput && fileInput.files.length > 0) ||
+      document.querySelector(".rec-btn[data-recording]");
+    if (!drafting) location.reload();
+  });
+
   // ----- Date, clock, timezone prefill ------------------------------------
 
   var tz = "UTC";

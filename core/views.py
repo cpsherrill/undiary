@@ -84,7 +84,9 @@ def service_worker(request):
 
     with open(finders.find("sw.js")) as f:
         source = f.read()
-    return HttpResponse(source, content_type="text/javascript")
+    response = HttpResponse(source, content_type="text/javascript")
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 @login_required
