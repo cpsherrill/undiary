@@ -11,6 +11,7 @@
   --accent: light-dark(#1a73e8, #8ab4f8);
   --accent-wash: light-dark(rgba(26, 115, 232, 0.07), rgba(138, 180, 248, 0.09));
   --danger: light-dark(#c5221f, #f28b82);
+  --star: light-dark(#e5a300, #ffd257);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -187,11 +188,16 @@ main {
 .entry-link:hover { color: var(--accent); }
 
 .star-mark {
-  color: var(--accent);
+  color: var(--star);
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  vertical-align: -0.12em;
 }
-.star-mark:hover { text-decoration: none; }
+.star-mark:hover {
+  text-decoration: none;
+  filter: brightness(1.12);
+}
 
 .entry-detail { border-bottom: 1px solid var(--border); }
 

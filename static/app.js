@@ -80,6 +80,27 @@
     });
   };
 
+  // Copy that works everywhere: a synchronous execCommand attempt runs
+  // inside the tap gesture (WebKit is strict about that), the async
+  // clipboard API backs it up, and the share sheet is the last resort.
+  var legacyCopy = function (text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.setSelectionRange(0, text.length);
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (err) {
+      return false;
+    }
+  };
+
   document.addEventListener("click", function (e) {
     var copyBtn = e.target.closest("[data-copy-link]");
     if (copyBtn) {
@@ -89,11 +110,23 @@
         copyBtn.textContent = message;
         setTimeout(closeMenus, 900);
       };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (legacyCopy(link)) {
+        flash("Copied");
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(
           function () { flash("Copied"); },
-          function () { flash("Copy failed"); }
+          function () {
+            if (navigator.share) {
+              navigator.share({ url: link }).catch(function () {});
+              closeMenus();
+            } else {
+              flash("Copy failed");
+            }
+          }
         );
+      } else if (navigator.share) {
+        navigator.share({ url: link }).catch(function () {});
+        closeMenus();
       } else {
         flash("Copy failed");
       }
