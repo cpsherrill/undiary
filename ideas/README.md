@@ -15,6 +15,18 @@ being wrong.
   diary's proper nouns (Crowable, not crawlable). Speech adaptation
   fed by the corpus, or a cleanup pass by the enrichment model, or
   both.
+- Transcription lexicon, the nearer half of context help: pass a
+  personal phrase list (project names, people) to Speech-to-Text as
+  adaptation hints, so uncommon words stop arriving wrong.
+- A live level indicator on the mic button: quiet when the
+  microphone hears nothing, moving when it hears a voice, so a
+  silent take announces itself before it is logged.
+- A small splash for a newly inserted entry: a dot and a quick
+  animation pushing the list down, so the log visibly receives it.
+- Extensibility: hooks and plugins, and notes pushed and pulled from
+  other places. The API the site already speaks, made official.
+- Reconsider the favicon. The log stands accused of being not
+  clever.
 - Service-worker background sync for the outbox, so a queued entry
   can flush even before the app is reopened. (The PWA itself shipped
   2026-08-28 in two halves: install-grade manifest, icons, worker,
