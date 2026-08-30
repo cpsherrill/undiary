@@ -175,6 +175,24 @@ main {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
 }
+
+/* Five bars that move only for an actual voice. */
+.rec-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 1.2rem;
+}
+.rec-level i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--border);
+  transform: scaleY(0.18);
+  transform-origin: center;
+  transition: transform 90ms linear, background 150ms;
+}
+.rec-level[data-hearing] i { background: var(--danger); }
 .rec-preview { width: 13rem; height: 2.1rem; }
 
 .mic-select {

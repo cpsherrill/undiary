@@ -512,6 +512,60 @@
       return m + ":" + s;
     };
 
+    // ----- Level meter: bars that move only for an actual voice ----------
+
+    var levelEl = document.getElementById("rec-level");
+    var levelBars = levelEl ? [].slice.call(levelEl.children) : [];
+    var HEARING_RMS = 0.012;
+    var audioCtx = null;
+    var levelTimer = null;
+    var heardPeak = 0;
+
+    var startLevelMeter = function (stream) {
+      if (!levelEl || !(window.AudioContext || window.webkitAudioContext)) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        var analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        audioCtx.createMediaStreamSource(stream).connect(analyser);
+        var buf = new Uint8Array(analyser.fftSize);
+        var levels = [0, 0, 0, 0, 0];
+        heardPeak = 0;
+        levelEl.hidden = false;
+        levelTimer = setInterval(function () {
+          analyser.getByteTimeDomainData(buf);
+          var sum = 0;
+          for (var i = 0; i < buf.length; i++) {
+            var v = (buf[i] - 128) / 128;
+            sum += v * v;
+          }
+          var rms = Math.sqrt(sum / buf.length);
+          if (rms > heardPeak) heardPeak = rms;
+          levels.shift();
+          levels.push(rms);
+          levelEl.toggleAttribute("data-hearing", rms > HEARING_RMS);
+          levelBars.forEach(function (bar, idx) {
+            var scale = Math.max(0.18, Math.min(1, levels[idx] * 9));
+            bar.style.transform = "scaleY(" + scale + ")";
+          });
+        }, 90);
+      } catch (err) { /* no meter, the recording is unaffected */ }
+    };
+
+    var stopLevelMeter = function () {
+      clearInterval(levelTimer);
+      levelTimer = null;
+      if (audioCtx) {
+        audioCtx.close().catch(function () {});
+        audioCtx = null;
+      }
+      if (levelEl) {
+        levelEl.hidden = true;
+        levelEl.removeAttribute("data-hearing");
+      }
+    };
+
     var clearPreview = function () {
       preview.pause();
       preview.hidden = true;
@@ -533,7 +587,8 @@
 
     var setAttached = function (seconds, file) {
       setIdle("");
-      status.textContent = "audio attached, " + fmt(seconds);
+      var verdict = heardPeak > 0 && heardPeak <= HEARING_RMS ? ", heard nothing" : "";
+      status.textContent = "audio attached, " + fmt(seconds) + verdict;
       status.setAttribute("data-attached", "");
       discard.hidden = false;
       previewUrl = URL.createObjectURL(file);
@@ -557,6 +612,7 @@
           );
           recorder.ondataavailable = function (e) { chunks.push(e.data); };
           recorder.onstop = function () {
+            stopLevelMeter();
             stream.getTracks().forEach(function (t) { t.stop(); });
             var seconds = (Date.now() - startedAt) / 1000;
             var type = (recorder.mimeType || "audio/webm").split(";")[0];
@@ -568,6 +624,7 @@
             setAttached(seconds, file);
           };
           recorder.start();
+          startLevelMeter(stream);
           startedAt = Date.now();
           recBtn.setAttribute("data-recording", "");
           recBtn.setAttribute("aria-label", "Stop recording");
@@ -582,6 +639,7 @@
 
     var stop = function () {
       clearInterval(timer);
+      stopLevelMeter();
       if (recorder && recorder.state !== "inactive") recorder.stop();
     };
 
