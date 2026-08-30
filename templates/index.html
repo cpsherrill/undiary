@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
 <form method="post" class="log-form" enctype="multipart/form-data">
@@ -49,5 +50,5 @@
   {% endfor %}
 </section>
 
-<script src="/static/app.js"></script>
+<script src="{% static 'app.js' %}"></script>
 {% endblock %}

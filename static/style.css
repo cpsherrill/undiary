@@ -117,6 +117,15 @@ main {
 .popover form { margin: 0; }
 
 .who-menu { min-width: 15rem; }
+.who-version {
+  margin: 0.15rem 0 0;
+  padding: 0.3rem 0.7rem 0.35rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  cursor: default;
+}
 .who-email {
   margin: 0;
   padding: 0.5rem 0.7rem 0.6rem;

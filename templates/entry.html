@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ entry.log_date|date:"Y-m-d" }} &middot; Undiary{% endblock %}
 
@@ -7,5 +8,5 @@
   {% include "_entry.html" with entry=entry %}
 </section>
 <p class="back-link"><a href="/">All entries</a></p>
-<script src="/static/app.js"></script>
+<script src="{% static 'app.js' %}"></script>
 {% endblock %}

@@ -617,6 +617,22 @@ class EntryDetailTests(TestCase):
         self.assertContains(response, ">Star</button>")
         self.assertContains(response, "data-copy-link")
 
+    def test_account_menu_shows_revision(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, 'class="who-version"')
+
+    def test_templates_never_hardcode_the_script_path(self):
+        # The unhashed /static/app.js fossilized in service worker
+        # caches once; never again. Templates must use {% static %}.
+        from pathlib import Path
+
+        from django.conf import settings
+
+        for name in ["index.html", "entry.html", "base.html"]:
+            source = (Path(settings.BASE_DIR) / "templates" / name).read_text()
+            self.assertNotIn('src="/static/', source, name)
+
     def test_star_toggles_and_shows_mark(self):
         self.client.force_login(self.user)
         self.client.post(reverse("entry_star", args=[self.entry.pk]))

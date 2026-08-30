@@ -2,7 +2,7 @@
    are seen; page navigations go to the network and fall back to the
    offline page. The offline capture queue is a later milestone. */
 
-const CACHE = "undiary-v1";
+const CACHE = "undiary-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -30,16 +30,19 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin === location.origin && url.pathname.startsWith("/static/")) {
+    // Stale-while-revalidate: answer from cache for speed, refresh
+    // behind, so even an unhashed asset can never fossilize.
     event.respondWith(
       caches.open(CACHE).then((cache) =>
-        cache.match(request).then(
-          (hit) =>
-            hit ||
-            fetch(request).then((response) => {
+        cache.match(request).then((hit) => {
+          const refresh = fetch(request)
+            .then((response) => {
               if (response.ok) cache.put(request, response.clone());
               return response;
             })
-        )
+            .catch(() => hit);
+          return hit || refresh;
+        })
       )
     );
     return;
