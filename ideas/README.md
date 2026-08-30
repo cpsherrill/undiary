@@ -33,7 +33,15 @@ being wrong.
   and offline page; then the offline capture queue in IndexedDB with
   in-order flush on reconnect. The captain does not check for
   signal.)
+- Non-enumerable entry addresses: random slugs or ULIDs instead of
+  sequential ids, so a many-user future leaks nothing about volume.
+  Costs nothing to skip while the allowlist has one name on it.
+- Sharing one entry on purpose: a per-entry public token, minted by
+  the owner and revocable, rendering a read-only page. A deliberate
+  feature, never a loosening of the owner-only rule.
 - Permalinks for individual entries, so one note can be pointed at.
+  (Shipped 2026-08-28: /entries/<id>, the timestamp links there, and
+  Copy link / Share link lives in the entry menu.)
 - Star or bookmark on an entry: a hand-placed mark meaning "this one,"
   filterable later alongside tags.
 - A microphone-device picker in the recorder, for browsers that guess
