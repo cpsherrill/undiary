@@ -20,7 +20,9 @@ being wrong.
   adaptation hints, so uncommon words stop arriving wrong.
 - A live level indicator on the mic button: quiet when the
   microphone hears nothing, moving when it hears a voice, so a
-  silent take announces itself before it is logged.
+  silent take announces itself before it is logged. (Shipped
+  2026-08-29: five bars beside the mic, and a "heard nothing"
+  verdict on the attach line.)
 - A small splash for a newly inserted entry: a dot and a quick
   animation pushing the list down, so the log visibly receives it.
 - Extensibility: hooks and plugins, and notes pushed and pulled from
