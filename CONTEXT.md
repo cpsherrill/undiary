@@ -59,6 +59,26 @@ dime, so the answer to "should this be derived?" is almost always yes.
   date, tags, and entities; body below; audio files alongside) into a
   private vault. The mirror is derived, disposable, and the plain-text
   escape hatch. It is never a write path.
+- **Todo.** A derived object synthesized across entries: something the
+  corpus suggests wants doing. Its existence, summary, and links are
+  derived; the user's verdicts on it are capture. See
+  [docs/todos.md](docs/todos.md).
+- **Proposal and verdict.** The synthesis sweep proposes (a new todo,
+  a color attachment, a completion); the user renders verdicts
+  (accept, dismiss, done, reopen). Model proposes, user disposes; the
+  merge rule, promoted a level.
+- **Horizon.** How soon a todo matters: now, soon, or someday. A
+  verdict, editable, never model-overwritten.
+- **Seed, color, completion.** The three roles an entry can play for a
+  todo: the note that started it, a note that adds detail, and the
+  note that reports it done.
+- **Synthesis sweep.** The corpus-level pass that reads recent entries
+  and the current todo list and emits proposals. Distinct from
+  per-entry enrichment; versioned and re-runnable like everything
+  derived.
+- **The tab law.** Notes feed todos, never the reverse. The capture
+  surface stays sacred and dumb: no todo chrome on the log page, and
+  entries never know todos exist.
 
 ## The schema, in outline
 
