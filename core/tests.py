@@ -62,6 +62,7 @@ class EntryModelTests(TestCase):
         self.assertEqual(entry.local_spoken_at, entry.spoken_at.replace(tzinfo=None))
 
 
+@override_settings(PIPELINES_INLINE_DISABLED=True)
 class IndexViewTests(TestCase):
     def test_anonymous_is_sent_to_sign_in(self):
         response = self.client.get(reverse("index"))
@@ -181,6 +182,7 @@ class AllowlistTests(TestCase):
         )
 
 
+@override_settings(PIPELINES_INLINE_DISABLED=True)
 class AudioTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -415,6 +417,7 @@ class EnrichmentTests(TestCase):
         self.assertContains(response, "woodworking")
 
 
+@override_settings(PIPELINES_INLINE_DISABLED=False)
 class TranscriptionTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1018,6 +1021,92 @@ class TodoViewTests(TestCase):
         self.todo.refresh_from_db()
         self.assertEqual(self.todo.todo_entries.count(), 0)
         self.assertEqual(self.user.todos.count(), 1)
+
+
+@override_settings(PIPELINES_INLINE_DISABLED=True)
+class TodoTabFeatureTests(TestCase):
+    def setUp(self):
+        from .models import Todo
+
+        self.user = make_user()
+        self.todo = Todo.objects.create(
+            user=self.user, title="Paint the fence", status=Todo.OPEN,
+            horizon=Todo.SOON, decided_at=timezone.now(),
+        )
+        self.client.force_login(self.user)
+
+    def test_create_todo_in_app(self):
+        from .models import Todo
+
+        self.client.post(
+            reverse("todo_create"), {"title": "Sharpen the axe", "horizon": "now"}
+        )
+        todo = self.user.todos.get(title="Sharpen the axe")
+        self.assertEqual(todo.status, Todo.OPEN)
+        self.assertEqual(todo.horizon, Todo.NOW)
+        self.assertIsNotNone(todo.decided_at)
+
+    def test_blank_title_creates_nothing(self):
+        before = self.user.todos.count()
+        self.client.post(reverse("todo_create"), {"title": "  ", "horizon": "now"})
+        self.assertEqual(self.user.todos.count(), before)
+
+    def test_search_filters_todos(self):
+        from .models import Todo
+
+        Todo.objects.create(
+            user=self.user, title="Buy paint", status=Todo.OPEN, horizon=Todo.SOON
+        )
+        response = self.client.get(reverse("todos"), {"q": "fence"})
+        self.assertContains(response, "Paint the fence")
+        self.assertNotContains(response, "Buy paint")
+
+    def test_outstanding_count_renders(self):
+        response = self.client.get(reverse("todos"))
+        self.assertContains(response, "1 outstanding.")
+
+    def test_someday_and_done_fold_closed_by_default(self):
+        import re
+
+        response = self.client.get(reverse("todos"))
+        html = response.content.decode()
+        someday = re.search(r'<details[^>]*data-fold="someday"[^>]*>', html).group(0)
+        soon = re.search(r'<details[^>]*data-fold="soon"[^>]*>', html).group(0)
+        done = re.search(r'<details[^>]*data-fold="done"[^>]*>', html).group(0)
+        self.assertNotIn(" open", someday)
+        self.assertNotIn(" open", done)
+        self.assertIn(" open", soon)
+
+    def test_todo_note_becomes_linked_entry(self):
+        from .models import TodoEntry
+
+        self.client.post(
+            reverse("todo_note", args=[self.todo.pk]),
+            {"text": "Cedar, not pine.", "tz": "America/New_York",
+             "log_date": "2026-09-01"},
+        )
+        entry = self.user.entries.get()
+        self.assertEqual(entry.body, "Cedar, not pine.")
+        link = self.todo.todo_entries.get()
+        self.assertEqual(link.entry, entry)
+        self.assertEqual(link.role, TodoEntry.COLOR)
+        self.assertEqual(link.source, TodoEntry.USER)
+        response = self.client.get(reverse("todos"))
+        self.assertContains(response, "Cedar, not pine.")
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, "Cedar, not pine.")
+
+    def test_blank_note_creates_nothing(self):
+        self.client.post(reverse("todo_note", args=[self.todo.pk]), {"text": " "})
+        self.assertEqual(self.user.entries.count(), 0)
+
+    def test_stranger_cannot_note_anothers_todo(self):
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        self.client.post(
+            reverse("todo_note", args=[self.todo.pk]), {"text": "mine now"}
+        )
+        self.assertEqual(self.todo.todo_entries.count(), 0)
 
 
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])

@@ -130,6 +130,8 @@ def _apply(entry, result, model_name):
 def enrich_quietly(entry, timeout=15.0):
     """Best-effort inline pass after a save; failures wait for the
     enrich_pending sweep instead of breaking the request."""
+    if settings.PIPELINES_INLINE_DISABLED:
+        return
     try:
         enrich_entry(entry, timeout=timeout)
     except Exception:

@@ -3,9 +3,26 @@
 {% block title %}Todos &middot; Undiary{% endblock %}
 
 {% block content %}
-{% if topic %}
-<p class="search-note">Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">Clear</a></p>
-{% endif %}
+<form method="post" action="{% url 'todo_create' %}" class="todo-add">
+  {% csrf_token %}
+  <input type="text" name="title" maxlength="120" placeholder="Add a todo"
+         aria-label="New todo title" required>
+  <select class="mic-select" name="horizon" aria-label="Horizon">
+    <option value="now">Now</option>
+    <option value="soon" selected>Soon</option>
+    <option value="someday">Someday</option>
+  </select>
+  <button type="submit">Add</button>
+</form>
+
+<form method="get" class="search-form todo-search" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search todos"
+         aria-label="Search todos">
+  {% if topic %}<input type="hidden" name="topic" value="{{ topic }}">{% endif %}
+  {% if q %}<a class="search-clear" href="{% url 'todos' %}{% if topic %}?topic={{ topic }}{% endif %}">Clear</a>{% endif %}
+</form>
+
+<p class="search-note">{{ outstanding }} outstanding.{% if topic %} Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">Clear</a>{% endif %}</p>
 
 {% if proposed %}
 <section class="todo-section">
@@ -15,22 +32,22 @@
 {% endif %}
 
 <section class="todo-section">
-  <h2>Open</h2>
   {% for horizon, todos in horizons %}
-    {% if todos %}
-    <h3 class="horizon-label">{{ horizon|title }}</h3>
-    {% for todo in todos %}{% include "_todo.html" with todo=todo %}{% endfor %}
-    {% endif %}
+  <details class="todo-fold" data-fold="{{ horizon }}"{% if horizon != 'someday' %} open{% endif %}>
+    <summary><span class="fold-title">{{ horizon|title }}</span><span class="fold-count">{{ todos|length }}</span></summary>
+    {% for todo in todos %}{% include "_todo.html" with todo=todo %}{% empty %}
+    <p class="empty">Nothing here.</p>
+    {% endfor %}
+  </details>
   {% endfor %}
-  {% if not horizons.0.1 and not horizons.1.1 and not horizons.2.1 %}
-  <p class="empty">Nothing open. The list rests.</p>
-  {% endif %}
 </section>
 
-{% if done %}
 <section class="todo-section">
-  <h2>Done</h2>
-  {% for todo in done %}{% include "_todo.html" with todo=todo %}{% endfor %}
+  <details class="todo-fold" data-fold="done">
+    <summary><span class="fold-title">Done</span><span class="fold-count">{{ done|length }}</span></summary>
+    {% for todo in done %}{% include "_todo.html" with todo=todo %}{% empty %}
+    <p class="empty">Nothing finished. Or nothing admitted.</p>
+    {% endfor %}
+  </details>
 </section>
-{% endif %}
 {% endblock %}

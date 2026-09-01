@@ -38,6 +38,9 @@ SPEECH_LANGUAGE = os.environ.get("SPEECH_LANGUAGE", "en-US")
 # The corpus-level synthesis model (docs/todos.md): Sonnet, by decree.
 SYNTHESIS_MODEL = os.environ.get("SYNTHESIS_MODEL", "claude-sonnet-5")
 
+# Tests flip this so inline pipeline calls never leave the process.
+PIPELINES_INLINE_DISABLED = os.environ.get("PIPELINES_INLINE_DISABLED", "0") == "1"
+
 # Emails that get Django admin (staff and superuser) at signup.
 UNDIARY_ADMIN_EMAILS = [
     e.strip().lower()

@@ -69,14 +69,26 @@ def entry_detail(request, pk):
 
 @login_required
 def todos(request):
+    from django.db.models import Q
+
     from .models import Todo
 
     topic = (request.GET.get("topic") or "").strip()
+    q = (request.GET.get("q") or "").strip()
     qs = request.user.todos.select_related("topic").prefetch_related(
         "items", "todo_entries__entry"
     )
     if topic:
         qs = qs.filter(topic__slug=topic)
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q)
+            | Q(summary__icontains=q)
+            | Q(items__text__icontains=q)
+        ).distinct()
+    outstanding = request.user.todos.filter(
+        status__in=[Todo.PROPOSED, Todo.OPEN]
+    ).count()
     todos_all = list(qs)
     proposed = [t for t in todos_all if t.status == Todo.PROPOSED]
     open_todos = [t for t in todos_all if t.status == Todo.OPEN]
@@ -93,9 +105,54 @@ def todos(request):
             "horizons": horizons,
             "done": done,
             "topic": topic,
+            "q": q,
+            "outstanding": outstanding,
             "active_tab": "todos",
         },
     )
+
+
+@login_required
+@require_POST
+def todo_create(request):
+    from .models import Todo
+
+    title = (request.POST.get("title") or "").strip()[:120]
+    horizon = request.POST.get("horizon", Todo.SOON)
+    if title:
+        request.user.todos.create(
+            title=title,
+            status=Todo.OPEN,
+            horizon=horizon if horizon in dict(Todo.HORIZONS) else Todo.SOON,
+            decided_at=timezone.now(),
+        )
+    return redirect("todos")
+
+
+@login_required
+@require_POST
+def todo_note(request, pk):
+    """A thought added to a todo is a diary entry that flows forward:
+    it lands in the log, gets enriched like any note, and links to the
+    todo as user-sourced color. The tab law holds."""
+    from .models import TodoEntry
+
+    todo = request.user.todos.filter(pk=pk).first()
+    text = (request.POST.get("text") or "").strip()
+    if todo and text:
+        entry = request.user.entries.create(
+            raw=text,
+            body=text,
+            spoken_at=timezone.now(),
+            tz=(request.POST.get("tz") or "UTC")[:64],
+            log_date=_parse_date(request.POST.get("log_date")) or timezone.localdate(),
+        )
+        TodoEntry.objects.get_or_create(
+            todo=todo, entry=entry, role=TodoEntry.COLOR,
+            defaults={"source": TodoEntry.USER},
+        )
+        enrichment.enrich_quietly(entry)
+    return redirect("todos")
 
 
 @login_required

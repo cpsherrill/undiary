@@ -44,6 +44,8 @@ def transcribe_entry(entry):
 def transcribe_quietly(entry):
     """Best-effort inline attempt after a save; failures wait for the
     sweep instead of breaking the request."""
+    if settings.PIPELINES_INLINE_DISABLED:
+        return
     try:
         transcribe_entry(entry)
     except Exception:

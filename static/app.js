@@ -68,6 +68,20 @@
       }
       localStorage.setItem(SEEN_KEY, new Date().toISOString());
     } catch (e) { /* fine */ }
+
+    document.querySelectorAll("details.todo-fold").forEach(function (fold) {
+      var key = "undiary-fold-" + fold.getAttribute("data-fold");
+      try {
+        var stored = localStorage.getItem(key);
+        if (stored === "1") fold.open = true;
+        else if (stored === "0") fold.open = false;
+      } catch (e) { /* defaults stand */ }
+      fold.addEventListener("toggle", function () {
+        try {
+          localStorage.setItem(key, fold.open ? "1" : "0");
+        } catch (e) { /* fine */ }
+      });
+    });
   }
 
   // ----- Date, clock, timezone prefill ------------------------------------
@@ -77,16 +91,20 @@
     tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch (e) { /* UTC it is */ }
 
-  var tzInput = document.getElementById("tz");
-  if (tzInput) tzInput.value = tz;
+  document.querySelectorAll('input[name="tz"]').forEach(function (el) {
+    el.value = tz;
+  });
+
+  var now = new Date();
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  var localDate =
+    now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
 
   var dateInput = document.getElementById("log-date");
-  if (dateInput && !dateInput.value) {
-    var now = new Date();
-    var pad = function (n) { return String(n).padStart(2, "0"); };
-    dateInput.value =
-      now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
-  }
+  if (dateInput && !dateInput.value) dateInput.value = localDate;
+  document.querySelectorAll("input.js-local-date").forEach(function (el) {
+    if (!el.value) el.value = localDate;
+  });
 
   var clock = document.getElementById("log-clock");
   if (clock) {

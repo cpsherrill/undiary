@@ -36,10 +36,25 @@
     {% endfor %}
   </ul>
   {% endif %}
+  {% for te in todo.todo_entries.all %}{% if te.role == 'color' %}
+  <p class="todo-thought"><a href="{% url 'entry_detail' te.entry.pk %}">{{ te.entry.log_date|date:"m-d" }}</a> {{ te.entry.body|truncatechars:140 }}</p>
+  {% endif %}{% endfor %}
   <p class="todo-links">
     {% if todo.topic %}<a class="tag-chip" href="{% url 'todos' %}?topic={{ todo.topic.slug }}">{{ todo.topic.slug }}</a>{% endif %}
-    {% for te in todo.todo_entries.all %}
+    {% for te in todo.todo_entries.all %}{% if te.role != 'color' %}
     <a class="todo-note-link todo-note-{{ te.role }}" href="{% url 'entry_detail' te.entry.pk %}">{{ te.role }}: {{ te.entry.log_date|date:"Y-m-d" }}</a>
-    {% endfor %}
+    {% endif %}{% endfor %}
   </p>
+  {% if todo.status == 'proposed' or todo.status == 'open' %}
+  <details class="todo-addnote">
+    <summary>Add note</summary>
+    <form method="post" action="{% url 'todo_note' todo.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="tz" value="UTC">
+      <input type="hidden" name="log_date" class="js-local-date" value="">
+      <textarea name="text" rows="2" aria-label="Note for this todo"></textarea>
+      <button type="submit">Log</button>
+    </form>
+  </details>
+  {% endif %}
 </article>
