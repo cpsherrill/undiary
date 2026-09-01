@@ -26,7 +26,7 @@
       <select id="mic-select" class="mic-select" hidden aria-label="Microphone"></select>
       <span id="rec-status" class="rec-status"></span>
       <audio id="rec-preview" class="rec-preview" controls hidden></audio>
-      <button type="button" id="rec-discard" class="rec-discard" hidden>discard</button>
+      <button type="button" id="rec-discard" class="rec-discard" hidden>Discard</button>
     </div>
     <button type="submit">Log</button>
   </div>
@@ -35,7 +35,7 @@
 <form method="get" class="search-form" role="search">
   <input type="search" name="q" value="{{ q }}" placeholder="Search, or #tag"
          aria-label="Search entries">
-  {% if q %}<a class="search-clear" href="/">clear</a>{% endif %}
+  {% if q %}<a class="search-clear" href="/">Clear</a>{% endif %}
 </form>
 {% if q %}
 <p class="search-note">{{ entries|length }} match{{ entries|length|pluralize:"es" }}</p>
@@ -51,5 +51,4 @@
   {% endfor %}
 </section>
 
-<script src="{% static 'app.js' %}"></script>
 {% endblock %}

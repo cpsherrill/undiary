@@ -27,6 +27,49 @@
     if (!drafting) location.reload();
   });
 
+  // ----- Arrival flash: a fresh entry announces itself ---------------------
+
+  var newPk = new URLSearchParams(location.search).get("new");
+  if (newPk) {
+    var fresh = document.getElementById("entry-" + newPk);
+    if (fresh) fresh.classList.add("flash-new");
+    var params = new URLSearchParams(location.search);
+    params.delete("new");
+    var qs = params.toString();
+    history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+  }
+
+  // ----- Todos page: keep your place, flash new arrivals -------------------
+
+  if (location.pathname === "/todos") {
+    try {
+      var savedScroll = sessionStorage.getItem("undiary-todos-scroll");
+      if (savedScroll !== null) {
+        window.scrollTo(0, parseInt(savedScroll, 10) || 0);
+        sessionStorage.removeItem("undiary-todos-scroll");
+      }
+    } catch (e) { /* no storage, no memory */ }
+
+    document.addEventListener("submit", function () {
+      try {
+        sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
+      } catch (e) { /* fine */ }
+    });
+
+    try {
+      var SEEN_KEY = "undiary-todos-seen";
+      var seen = Date.parse(localStorage.getItem(SEEN_KEY) || "") || 0;
+      if (seen) {
+        document.querySelectorAll(".todo[data-created]").forEach(function (el) {
+          if (Date.parse(el.getAttribute("data-created")) > seen) {
+            el.classList.add("flash-new");
+          }
+        });
+      }
+      localStorage.setItem(SEEN_KEY, new Date().toISOString());
+    } catch (e) { /* fine */ }
+  }
+
   // ----- Date, clock, timezone prefill ------------------------------------
 
   var tz = "UTC";
@@ -387,7 +430,8 @@
       fetch(location.href, { method: "POST", body: fd, credentials: "same-origin" })
         .then(function (res) {
           if (postable(res)) {
-            location.assign("/");
+            // The redirect carries ?new=<id> so the arrival can flash.
+            location.assign(res.url || "/");
           } else {
             resetLogForm();
           }

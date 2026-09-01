@@ -4,7 +4,7 @@
 
 {% block content %}
 {% if topic %}
-<p class="search-note">Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">clear</a></p>
+<p class="search-note">Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">Clear</a></p>
 {% endif %}
 
 {% if proposed %}
@@ -18,7 +18,7 @@
   <h2>Open</h2>
   {% for horizon, todos in horizons %}
     {% if todos %}
-    <h3 class="horizon-label">{{ horizon }}</h3>
+    <h3 class="horizon-label">{{ horizon|title }}</h3>
     {% for todo in todos %}{% include "_todo.html" with todo=todo %}{% endfor %}
     {% endif %}
   {% endfor %}

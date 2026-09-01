@@ -75,8 +75,8 @@ class IndexViewTests(TestCase):
             reverse("index"),
             {"text": "First entry.", "tz": "America/New_York", "log_date": "2026-08-27"},
         )
-        self.assertRedirects(response, reverse("index"))
         entry = user.entries.get()
+        self.assertRedirects(response, f"/?new={entry.pk}")
         self.assertEqual(entry.raw, "First entry.")
         self.assertEqual(entry.body, "First entry.")
         self.assertEqual(entry.tz, "America/New_York")
@@ -381,8 +381,8 @@ class EnrichmentTests(TestCase):
             response = self.client.post(
                 reverse("index"), {"text": "still saved", "tz": "UTC"}
             )
-        self.assertRedirects(response, reverse("index"))
-        self.assertTrue(self.user.entries.filter(raw="still saved").exists())
+        entry = self.user.entries.get(raw="still saved")
+        self.assertRedirects(response, f"/?new={entry.pk}")
 
     def test_enrich_pending_command_processes_unenriched_only(self):
         from io import StringIO
@@ -555,8 +555,8 @@ class TranscriptionTests(TestCase):
             response = self.client.post(
                 reverse("index"), {"text": "", "tz": "UTC", "audio": clip}
             )
-        self.assertRedirects(response, reverse("index"))
         entry = self.user.entries.get()
+        self.assertRedirects(response, f"/?new={entry.pk}")
         self.assertIsNone(entry.transcribed_at)
 
 

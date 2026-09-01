@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
@@ -43,6 +44,7 @@ def index(request):
             if audio_key:
                 transcription.transcribe_quietly(entry)
             enrichment.enrich_quietly(entry)
+            return redirect(f"{reverse('index')}?new={entry.pk}")
         return redirect("index")
 
     q = (request.GET.get("q") or "").strip()

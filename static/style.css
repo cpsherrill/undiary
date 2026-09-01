@@ -12,6 +12,7 @@
   --accent-wash: light-dark(rgba(26, 115, 232, 0.07), rgba(138, 180, 248, 0.09));
   --danger: light-dark(#c5221f, #f28b82);
   --star: light-dark(#e5a300, #ffd257);
+  --flash: light-dark(rgba(26, 115, 232, 0.16), rgba(138, 180, 248, 0.22));
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -401,9 +402,7 @@ button[type="submit"]:hover, .btn:hover {
   margin: 0.9rem 0 0.2rem;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.8rem;
 }
 .todo {
   padding: 0.8rem 0;
@@ -456,6 +455,20 @@ span.item-done { color: var(--muted); text-decoration: line-through; }
 }
 .todo-note-link:hover { color: var(--accent); border-color: var(--accent); }
 .todo-note-completion { border-color: var(--accent); color: var(--accent); }
+
+/* A newly arrived item flashes bright and settles. */
+.flash-new {
+  animation: flash-in 900ms ease-out;
+  border-radius: 10px;
+}
+@keyframes flash-in {
+  0% { background-color: var(--flash); transform: translateY(-6px); }
+  55% { background-color: var(--flash); transform: none; }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-new { animation: none; }
+}
 
 /* ---- Search ---- */
 

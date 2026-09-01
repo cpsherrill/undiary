@@ -1,4 +1,4 @@
-<article class="entry">
+<article class="entry" id="entry-{{ entry.pk }}">
   <div class="entry-head">
     <p class="entry-meta">{% if entry.starred %}<a class="star-mark" href="/?q=is%3Astarred" title="Starred; click for all starred entries">&#9733;</a> {% endif %}<a class="entry-link" href="{% url 'entry_detail' entry.pk %}">{{ entry.log_date|date:"Y-m-d" }} &middot; {{ entry.local_spoken_at|date:"H:i" }}</a></p>
     <div class="entry-actions">

@@ -1,4 +1,4 @@
-<article class="todo{% if todo.status == 'done' %} todo-done{% endif %}">
+<article class="todo{% if todo.status == 'done' %} todo-done{% endif %}" id="todo-{{ todo.pk }}" data-created="{{ todo.created_at|date:'c' }}">
   <div class="todo-head">
     <h4 class="todo-title">{{ todo.title }}</h4>
     <div class="todo-controls">
@@ -9,7 +9,7 @@
       <form method="post" action="{% url 'todo_horizon' todo.pk %}">{% csrf_token %}
         <select class="mic-select" name="horizon" aria-label="Horizon" onchange="this.form.submit()">
           {% for value, label in todo.HORIZONS %}
-          <option value="{{ value }}" {% if todo.horizon == value %}selected{% endif %}>{{ label }}</option>
+          <option value="{{ value }}" {% if todo.horizon == value %}selected{% endif %}>{{ label|title }}</option>
           {% endfor %}
         </select>
       </form>
