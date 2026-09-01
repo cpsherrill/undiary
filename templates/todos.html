@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Todos &middot; Undiary{% endblock %}
+
+{% block content %}
+{% if topic %}
+<p class="search-note">Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">clear</a></p>
+{% endif %}
+
+{% if proposed %}
+<section class="todo-section">
+  <h2>Proposed</h2>
+  {% for todo in proposed %}{% include "_todo.html" with todo=todo %}{% endfor %}
+</section>
+{% endif %}
+
+<section class="todo-section">
+  <h2>Open</h2>
+  {% for horizon, todos in horizons %}
+    {% if todos %}
+    <h3 class="horizon-label">{{ horizon }}</h3>
+    {% for todo in todos %}{% include "_todo.html" with todo=todo %}{% endfor %}
+    {% endif %}
+  {% endfor %}
+  {% if not horizons.0.1 and not horizons.1.1 and not horizons.2.1 %}
+  <p class="empty">Nothing open. The list rests.</p>
+  {% endif %}
+</section>
+
+{% if done %}
+<section class="todo-section">
+  <h2>Done</h2>
+  {% for todo in done %}{% include "_todo.html" with todo=todo %}{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

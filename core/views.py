@@ -52,7 +52,9 @@ def index(request):
         )[:100]
     else:
         entries = request.user.entries.prefetch_related("entry_tags__tag")[:50]
-    return render(request, "index.html", {"entries": entries, "q": q})
+    return render(
+        request, "index.html", {"entries": entries, "q": q, "active_tab": "notes"}
+    )
 
 
 @login_required
@@ -60,7 +62,88 @@ def entry_detail(request, pk):
     entry = get_object_or_404(
         request.user.entries.prefetch_related("entry_tags__tag"), pk=pk
     )
-    return render(request, "entry.html", {"entry": entry})
+    return render(request, "entry.html", {"entry": entry, "active_tab": "notes"})
+
+
+@login_required
+def todos(request):
+    from .models import Todo
+
+    topic = (request.GET.get("topic") or "").strip()
+    qs = request.user.todos.select_related("topic").prefetch_related(
+        "items", "todo_entries__entry"
+    )
+    if topic:
+        qs = qs.filter(topic__slug=topic)
+    todos_all = list(qs)
+    proposed = [t for t in todos_all if t.status == Todo.PROPOSED]
+    open_todos = [t for t in todos_all if t.status == Todo.OPEN]
+    horizons = [
+        (h, [t for t in open_todos if t.horizon == h])
+        for h in (Todo.NOW, Todo.SOON, Todo.SOMEDAY)
+    ]
+    done = [t for t in todos_all if t.status == Todo.DONE][:20]
+    return render(
+        request,
+        "todos.html",
+        {
+            "proposed": proposed,
+            "horizons": horizons,
+            "done": done,
+            "topic": topic,
+            "active_tab": "todos",
+        },
+    )
+
+
+@login_required
+@require_POST
+def todo_verdict(request, pk, action):
+    from .models import Todo
+
+    transitions = {
+        "accept": ([Todo.PROPOSED], Todo.OPEN, "decided_at"),
+        "dismiss": ([Todo.PROPOSED, Todo.OPEN], Todo.DISMISSED, "decided_at"),
+        "done": ([Todo.OPEN], Todo.DONE, "done_at"),
+        "reopen": ([Todo.DONE], Todo.OPEN, None),
+    }
+    if action not in transitions:
+        return redirect("todos")
+    allowed_from, target, stamp = transitions[action]
+    todo = request.user.todos.filter(pk=pk, status__in=allowed_from).first()
+    if todo:
+        todo.status = target
+        if stamp:
+            setattr(todo, stamp, timezone.now())
+        if action == "reopen":
+            todo.done_at = None
+        todo.save()
+    return redirect("todos")
+
+
+@login_required
+@require_POST
+def todo_item_toggle(request, pk):
+    from .models import TodoItem
+
+    item = TodoItem.objects.filter(pk=pk, todo__user=request.user).first()
+    if item:
+        item.done = not item.done
+        item.save(update_fields=["done"])
+    return redirect("todos")
+
+
+@login_required
+@require_POST
+def todo_horizon(request, pk):
+    from .models import Todo
+
+    horizon = request.POST.get("horizon", "")
+    todo = request.user.todos.filter(pk=pk).first()
+    if todo and horizon in dict(Todo.HORIZONS):
+        todo.horizon = horizon
+        todo.save(update_fields=["horizon"])
+    return redirect("todos")
 
 
 @login_required

@@ -59,8 +59,8 @@ v2 (API enabled, `undiary-run` holds roles/speech.client, and the
 Speech service agent can read the audio bucket for the batch path).
 
 - Cloud Run job `undiary-enrich` runs `manage.py sweep`: transcribe
-  pending audio, then enrich pending entries, in that order so a
-  fresh transcript is read the same pass. `--all` variants exist on
+  pending audio, enrich pending entries, then synthesize todos, so a
+  fresh transcript is read and weighed the same pass. `--all` variants exist on
   both underlying commands for retroactive re-runs.
 - Cloud Scheduler `undiary-enrich-sweep` fires it every 15 minutes as
   the backstop; inline passes after each save do the normal work.

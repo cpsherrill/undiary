@@ -138,6 +138,109 @@ class EntryTag(models.Model):
         return f"{self.entry_id}: {self.tag}"
 
 
+class Todo(models.Model):
+    """A derived object synthesized across entries. Existence, summary,
+    and links are derived; the user's verdicts (status, horizon,
+    checked items, edits) are capture. See docs/todos.md."""
+
+    PROPOSED = "proposed"
+    OPEN = "open"
+    DONE = "done"
+    DISMISSED = "dismissed"
+    STATUSES = [(s, s) for s in (PROPOSED, OPEN, DONE, DISMISSED)]
+
+    NOW = "now"
+    SOON = "soon"
+    SOMEDAY = "someday"
+    HORIZONS = [(h, h) for h in (NOW, SOON, SOMEDAY)]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="todos"
+    )
+    title = models.CharField(max_length=120)
+    summary = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=9, choices=STATUSES, default=PROPOSED)
+    horizon = models.CharField(max_length=8, choices=HORIZONS, default=SOON)
+    topic = models.ForeignKey(
+        Tag, null=True, blank=True, on_delete=models.SET_NULL, related_name="todos"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    done_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.status})"
+
+    @property
+    def completion_links(self):
+        return [te for te in self.todo_entries.all() if te.role == TodoEntry.COMPLETION]
+
+
+class TodoItem(models.Model):
+    todo = models.ForeignKey(Todo, on_delete=models.CASCADE, related_name="items")
+    text = models.CharField(max_length=200)
+    done = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return self.text
+
+
+class TodoEntry(models.Model):
+    """The provenance link. An entry seeds a todo, colors it, or
+    reports it complete. Entry deletion removes the link, never the
+    todo (FR10)."""
+
+    SEED = "seed"
+    COLOR = "color"
+    COMPLETION = "completion"
+    ROLES = [(r, r) for r in (SEED, COLOR, COMPLETION)]
+
+    MODEL = "model"
+    USER = "user"
+    SOURCES = [(s, s) for s in (MODEL, USER)]
+
+    todo = models.ForeignKey(Todo, on_delete=models.CASCADE, related_name="todo_entries")
+    entry = models.ForeignKey(Entry, on_delete=models.CASCADE, related_name="todo_entries")
+    role = models.CharField(max_length=10, choices=ROLES)
+    source = models.CharField(max_length=8, choices=SOURCES, default=MODEL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["todo", "entry", "role"], name="one_role_per_todo_entry"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.todo_id} <- {self.entry_id} ({self.role})"
+
+
+class SynthesisRun(models.Model):
+    """Audit trail of the corpus-level sweep: what ran, over what, and
+    what it proposed, so re-runs and debugging stay boring."""
+
+    version = models.PositiveIntegerField(unique=True)
+    model = models.CharField(max_length=100)
+    through_entry_id = models.PositiveIntegerField(default=0)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-version"]
+
+    def __str__(self):
+        return f"synthesis v{self.version} ({self.model})"
+
+
 class Enrichment(models.Model):
     """One model pass over one entry, stored whole. Versions append;
     the latest wins for display; nothing here is load-bearing for

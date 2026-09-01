@@ -35,6 +35,9 @@ ENRICHMENT_MODEL = os.environ.get("ENRICHMENT_MODEL", "claude-haiku-4-5")
 # Speech-to-Text language for audio entries.
 SPEECH_LANGUAGE = os.environ.get("SPEECH_LANGUAGE", "en-US")
 
+# The corpus-level synthesis model (docs/todos.md): Sonnet, by decree.
+SYNTHESIS_MODEL = os.environ.get("SYNTHESIS_MODEL", "claude-sonnet-5")
+
 # Emails that get Django admin (staff and superuser) at signup.
 UNDIARY_ADMIN_EMAILS = [
     e.strip().lower()

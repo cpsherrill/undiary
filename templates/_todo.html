@@ -1,0 +1,45 @@
+<article class="todo{% if todo.status == 'done' %} todo-done{% endif %}">
+  <div class="todo-head">
+    <h4 class="todo-title">{{ todo.title }}</h4>
+    <div class="todo-controls">
+      {% if todo.status == 'proposed' %}
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'accept' %}">{% csrf_token %}<button type="submit">Accept</button></form>
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'dismiss' %}">{% csrf_token %}<button class="quiet" type="submit">Dismiss</button></form>
+      {% elif todo.status == 'open' %}
+      <form method="post" action="{% url 'todo_horizon' todo.pk %}">{% csrf_token %}
+        <select class="mic-select" name="horizon" aria-label="Horizon" onchange="this.form.submit()">
+          {% for value, label in todo.HORIZONS %}
+          <option value="{{ value }}" {% if todo.horizon == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'done' %}">{% csrf_token %}<button type="submit"{% if todo.completion_links %} class="btn-suggested"{% endif %}>Done</button></form>
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'dismiss' %}">{% csrf_token %}<button class="quiet" type="submit">Dismiss</button></form>
+      {% elif todo.status == 'done' %}
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'reopen' %}">{% csrf_token %}<button class="quiet" type="submit">Reopen</button></form>
+      {% endif %}
+    </div>
+  </div>
+  {% if todo.summary %}<p class="todo-summary">{{ todo.summary }}</p>{% endif %}
+  {% if todo.status == 'open' and todo.completion_links %}
+  <p class="todo-evidence">A note says this is done.</p>
+  {% endif %}
+  {% if todo.items.all %}
+  <ul class="todo-items">
+    {% for item in todo.items.all %}
+    <li>
+      <form method="post" action="{% url 'todo_item_toggle' item.pk %}">{% csrf_token %}
+        <button class="item-toggle{% if item.done %} item-done{% endif %}" type="submit" aria-pressed="{{ item.done|yesno:'true,false' }}">{% if item.done %}&#9635;{% else %}&#9634;{% endif %}</button>
+      </form>
+      <span{% if item.done %} class="item-done"{% endif %}>{{ item.text }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <p class="todo-links">
+    {% if todo.topic %}<a class="tag-chip" href="{% url 'todos' %}?topic={{ todo.topic.slug }}">{{ todo.topic.slug }}</a>{% endif %}
+    {% for te in todo.todo_entries.all %}
+    <a class="todo-note-link todo-note-{{ te.role }}" href="{% url 'entry_detail' te.entry.pk %}">{{ te.role }}: {{ te.entry.log_date|date:"Y-m-d" }}</a>
+    {% endfor %}
+  </p>
+</article>

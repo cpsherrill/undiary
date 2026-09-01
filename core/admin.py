@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Enrichment, Entry, EntryTag, Tag
+from .models import (
+    Enrichment,
+    Entry,
+    EntryTag,
+    SynthesisRun,
+    Tag,
+    Todo,
+    TodoEntry,
+    TodoItem,
+)
 
 
 @admin.register(Entry)
@@ -29,6 +38,31 @@ class TagAdmin(admin.ModelAdmin):
 class EntryTagAdmin(admin.ModelAdmin):
     list_display = ("entry", "tag", "source", "confidence")
     list_filter = ("source", "tag__kind")
+
+
+class TodoItemInline(admin.TabularInline):
+    model = TodoItem
+    extra = 0
+
+
+class TodoEntryInline(admin.TabularInline):
+    model = TodoEntry
+    extra = 0
+    raw_id_fields = ("entry",)
+
+
+@admin.register(Todo)
+class TodoAdmin(admin.ModelAdmin):
+    list_display = ("title", "status", "horizon", "topic", "created_at")
+    list_filter = ("status", "horizon")
+    search_fields = ("title", "summary")
+    inlines = [TodoItemInline, TodoEntryInline]
+
+
+@admin.register(SynthesisRun)
+class SynthesisRunAdmin(admin.ModelAdmin):
+    list_display = ("version", "model", "through_entry_id", "created_at")
+    readonly_fields = ("version", "model", "through_entry_id", "payload", "created_at")
 
 
 @admin.register(Enrichment)

@@ -775,6 +775,202 @@ class SearchTests(TestCase):
         self.assertContains(response, "Nothing matches.")
 
 
+class SynthesisTests(TestCase):
+    def setUp(self):
+        from .models import Tag
+
+        self.user = make_user()
+        Tag.objects.create(user=self.user, slug="car", kind=Tag.FREE)
+        self.seed = Entry.objects.create(
+            user=self.user,
+            raw="Check the car sticker.",
+            body="I should check that the car has its city sticker.",
+            log_date=datetime.date(2026, 8, 28),
+        )
+
+    def _result(self, **overrides):
+        from .synthesis import AttachColor, Complete, NewTodo, SynthesisResult
+
+        base = dict(
+            new_todos=[
+                NewTodo(
+                    title="Confirm the car sticker",
+                    summary="The city sticker may be missing.",
+                    horizon="soon",
+                    topic="car",
+                    seed_entry_ids=[self.seed.pk],
+                    items=["Look at the windshield"],
+                )
+            ],
+            color=[],
+            completions=[],
+        )
+        base.update(overrides)
+        return SynthesisResult(**base)
+
+    def test_synthesis_creates_proposed_todo_with_links(self):
+        from unittest.mock import patch
+
+        from .models import Todo, TodoEntry
+        from .synthesis import run_synthesis
+
+        with patch("core.synthesis._call_model", return_value=self._result()):
+            run = run_synthesis(self.user)
+        self.assertEqual(run.version, 1)
+        todo = self.user.todos.get()
+        self.assertEqual(todo.status, Todo.PROPOSED)
+        self.assertEqual(todo.topic.slug, "car")
+        self.assertEqual(todo.items.count(), 1)
+        link = todo.todo_entries.get()
+        self.assertEqual((link.entry_id, link.role), (self.seed.pk, TodoEntry.SEED))
+
+    def test_completion_attaches_and_surfaces(self):
+        from unittest.mock import patch
+
+        from .models import Todo, TodoEntry
+        from .synthesis import Complete, run_synthesis
+
+        with patch("core.synthesis._call_model", return_value=self._result()):
+            run_synthesis(self.user)
+        todo = self.user.todos.get()
+        todo.status = Todo.OPEN
+        todo.save()
+        closer = Entry.objects.create(
+            user=self.user,
+            raw="Sticker is on the car.",
+            body="The car does indeed have the sticker.",
+            log_date=datetime.date(2026, 8, 29),
+        )
+        result = self._result(
+            new_todos=[],
+            completions=[Complete(todo_id=todo.pk, entry_id=closer.pk, excerpt="does indeed have")],
+        )
+        with patch("core.synthesis._call_model", return_value=result):
+            run = run_synthesis(self.user)
+        self.assertEqual(run.version, 2)
+        self.assertTrue(
+            todo.todo_entries.filter(entry=closer, role=TodoEntry.COMPLETION).exists()
+        )
+        todo.refresh_from_db()
+        self.assertEqual(todo.status, Todo.OPEN)
+
+    def test_synthesis_skips_when_nothing_new(self):
+        from unittest.mock import patch
+
+        from .synthesis import run_synthesis
+
+        with patch("core.synthesis._call_model", return_value=self._result()):
+            run_synthesis(self.user)
+        with patch("core.synthesis._call_model") as call:
+            self.assertIsNone(run_synthesis(self.user))
+        self.assertFalse(call.called)
+
+    def test_invalid_seed_ids_drop_the_proposal(self):
+        from unittest.mock import patch
+
+        from .synthesis import NewTodo, run_synthesis
+
+        result = self._result(
+            new_todos=[
+                NewTodo(
+                    title="Ghost", summary="", horizon="now",
+                    seed_entry_ids=[99999],
+                )
+            ]
+        )
+        with patch("core.synthesis._call_model", return_value=result):
+            run_synthesis(self.user)
+        self.assertEqual(self.user.todos.count(), 0)
+
+
+class TodoViewTests(TestCase):
+    def setUp(self):
+        from .models import Todo
+
+        self.user = make_user()
+        self.entry = Entry.objects.create(
+            user=self.user, raw="x", body="x", log_date=datetime.date(2026, 8, 28)
+        )
+        self.todo = Todo.objects.create(
+            user=self.user, title="Confirm the car sticker", summary="s"
+        )
+
+    def test_tabs_render_on_both_pages(self):
+        self.client.force_login(self.user)
+        for url in [reverse("index"), reverse("todos")]:
+            response = self.client.get(url)
+            self.assertContains(response, 'class="tabs"')
+            self.assertContains(response, ">Todos</a>")
+
+    def test_proposed_todo_offers_verdicts(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("todos"))
+        self.assertContains(response, "Confirm the car sticker")
+        self.assertContains(response, ">Accept</button>")
+        self.assertContains(response, ">Dismiss</button>")
+
+    def test_verdict_lifecycle(self):
+        from .models import Todo
+
+        self.client.force_login(self.user)
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "accept"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.OPEN)
+        self.assertIsNotNone(self.todo.decided_at)
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "done"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.DONE)
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "reopen"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.OPEN)
+        self.assertIsNone(self.todo.done_at)
+
+    def test_done_never_writes_an_entry(self):
+        self.client.force_login(self.user)
+        before = self.user.entries.count()
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "accept"]))
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "done"]))
+        self.assertEqual(self.user.entries.count(), before)
+
+    def test_stranger_cannot_verdict(self):
+        from .models import Todo
+
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "accept"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.PROPOSED)
+
+    def test_item_toggle(self):
+        from .models import TodoItem
+
+        item = TodoItem.objects.create(todo=self.todo, text="look")
+        self.client.force_login(self.user)
+        self.client.post(reverse("todo_item_toggle", args=[item.pk]))
+        item.refresh_from_db()
+        self.assertTrue(item.done)
+
+    def test_horizon_edit(self):
+        from .models import Todo
+
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse("todo_horizon", args=[self.todo.pk]), {"horizon": "someday"}
+        )
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.horizon, Todo.SOMEDAY)
+
+    def test_entry_delete_keeps_todo(self):
+        from .models import TodoEntry
+
+        TodoEntry.objects.create(todo=self.todo, entry=self.entry, role=TodoEntry.SEED)
+        self.client.force_login(self.user)
+        self.client.post(reverse("entry_delete", args=[self.entry.pk]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.todo_entries.count(), 0)
+        self.assertEqual(self.user.todos.count(), 1)
+
+
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])
 class AdminPromotionTests(TestCase):
     def test_admin_email_gets_staff_and_superuser(self):

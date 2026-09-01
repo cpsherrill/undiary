@@ -370,6 +370,93 @@ button[type="submit"]:hover, .btn:hover {
   color: var(--accent);
 }
 
+/* ---- Tabs ---- */
+
+.tabs {
+  display: flex;
+  gap: 1.4rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem 0;
+}
+.tabs a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid transparent;
+}
+.tabs a.active {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.tabs a:hover { color: var(--accent); }
+
+/* ---- Todos ---- */
+
+.todo-section { margin-top: 1.6rem; }
+.todo-section h2 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+.horizon-label {
+  margin: 0.9rem 0 0.2rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.todo {
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--border);
+}
+.todo-done { opacity: 0.65; }
+.todo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.todo-title { margin: 0; font-size: 1rem; }
+.todo-controls { display: flex; align-items: center; gap: 0.6rem; }
+.todo-controls form { margin: 0; }
+.todo-summary { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.92rem; }
+.todo-evidence {
+  margin: 0.3rem 0 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+.btn-suggested { border-color: var(--accent); color: var(--accent); }
+.todo-items { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.todo-items li { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.12rem 0; }
+.item-toggle {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+}
+span.item-done { color: var(--muted); text-decoration: line-through; }
+.todo-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0;
+  align-items: center;
+}
+.todo-note-link {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.08rem 0.55rem;
+}
+.todo-note-link:hover { color: var(--accent); border-color: var(--accent); }
+.todo-note-completion { border-color: var(--accent); color: var(--accent); }
+
 /* ---- Search ---- */
 
 .search-form {

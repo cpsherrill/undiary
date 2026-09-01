@@ -39,6 +39,12 @@
     </div>
     {% endif %}
   </header>
+  {% if user.is_authenticated and active_tab %}
+  <nav class="tabs" aria-label="Sections">
+    <a href="/" {% if active_tab == 'notes' %}class="active" aria-current="page"{% endif %}>Notes</a>
+    <a href="{% url 'todos' %}" {% if active_tab == 'todos' %}class="active" aria-current="page"{% endif %}>Todos</a>
+  </nav>
+  {% endif %}
   <main>
     {% block content %}{% endblock %}
   </main>
