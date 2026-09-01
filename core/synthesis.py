@@ -121,9 +121,11 @@ def _call_model(entries, todos, dismissed, slugs):
             for e in entries
         ],
     }
+    # Sonnet thinks adaptively by default and thinking spends from the
+    # same budget; a small cap truncates the JSON mid-string.
     response = client.messages.parse(
         model=settings.SYNTHESIS_MODEL,
-        max_tokens=3000,
+        max_tokens=16000,
         system=SYSTEM,
         messages=[{"role": "user", "content": json.dumps(payload)}],
         output_format=SynthesisResult,
