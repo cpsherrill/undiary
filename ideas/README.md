@@ -25,6 +25,8 @@ being wrong.
   verdict on the attach line.)
 - A small splash for a newly inserted entry: a dot and a quick
   animation pushing the list down, so the log visibly receives it.
+  (Shipped 2026-09-01 as the arrival flash: a bright fade and a
+  settle, on new entries and on new todo proposals alike.)
 - Extensibility: hooks and plugins, and notes pushed and pulled from
   other places. The API the site already speaks, made official.
 - Reconsider the favicon. The log stands accused of being not
