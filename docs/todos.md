@@ -22,7 +22,7 @@ your own notes.
 
 1. **The law applies.** A todo's existence, summary, and entry links
    are derived and re-runnable. The user's verdicts (status, horizon,
-   due date, checked items) are capture; no re-run touches them.
+   checked items) are capture; no re-run touches them.
 2. **One-way flow (the tab law).** Notes feed todos, never the
    reverse. Verdicts live on todos and do not create entries. The log
    page grows no task chrome, ever.
