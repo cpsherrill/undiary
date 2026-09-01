@@ -11,6 +11,7 @@ import logging
 import anthropic
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count
 from pydantic import BaseModel
 
 from .models import Entry, SynthesisRun, Tag, Todo, TodoEntry, TodoItem
@@ -54,9 +55,11 @@ new diary entries. You propose, conservatively; the user decides.
 - new_todos: only when entries clearly express an intention, task, or
   follow-up worth tracking. Title short and imperative. Summary one or
   two sentences grounded in the entries. horizon is now, soon, or
-  someday by urgency. topic must be one of the provided tag slugs, or
-  empty. seed_entry_ids only from the provided entries. items only
-  when the entries themselves enumerate concrete steps.
+  someday by urgency. topic gathers: choose the most unifying slug
+  from topic_slugs that genuinely covers the todo, or empty; narrow
+  descriptors belong on entries as tags, never as topics.
+  seed_entry_ids only from the provided entries. items only when the
+  entries themselves enumerate concrete steps.
 - color: when a new entry adds real detail to an existing todo.
 - completions: only when an entry plainly reports the thing done;
   quote the reporting phrase in excerpt.
@@ -89,10 +92,30 @@ def run_synthesis(user, everything=False):
     dismissed = list(
         user.todos.filter(status=Todo.DISMISSED).values_list("title", flat=True)
     )
-    slugs = list(user.tags.values_list("slug", flat=True))
+    slugs = _topic_vocabulary(user)
 
     result = _call_model(entries, todos, dismissed, slugs)
     return _apply(user, result, entries)
+
+
+def _topic_vocabulary(user):
+    """Topics gather, so the vocabulary is small on purpose: every
+    watched tag, plus free tags that actually recur."""
+    watched = list(
+        user.tags.filter(kind=Tag.WATCHED, active=True).values_list("slug", flat=True)
+    )
+    frequent = list(
+        user.tags.filter(kind=Tag.FREE)
+        .annotate(uses=Count("entry_tags"))
+        .filter(uses__gte=3)
+        .order_by("-uses")
+        .values_list("slug", flat=True)[:15]
+    )
+    vocabulary = []
+    for slug in watched + frequent:
+        if slug not in vocabulary:
+            vocabulary.append(slug)
+    return vocabulary
 
 
 def _call_model(entries, todos, dismissed, slugs):
@@ -185,3 +208,79 @@ def _apply(user, result, entries):
         through_entry_id=max(entry_ids),
         payload=result.model_dump(),
     )
+
+
+# ---- Re-topic: reassign gathering topics to existing todos ------------
+
+
+class TopicFix(BaseModel):
+    todo_id: int
+    topic: str = ""
+
+
+class RetopicResult(BaseModel):
+    fixes: list[TopicFix]
+
+
+RETOPIC_SYSTEM = """You assign gathering topics to todos. For each
+todo, choose the single most unifying slug from topic_slugs that
+genuinely covers it, or empty when none does. Topics exist so related
+todos group together; never pick a narrow descriptor when a broader
+provided slug fits. Return a fix for every todo."""
+
+
+def retopic(user):
+    """One derived pass reassigning topics from the current
+    vocabulary. Verdicts are untouched; only the topic column moves."""
+    vocabulary = _topic_vocabulary(user)
+    todos = list(user.todos.exclude(status=Todo.DISMISSED).select_related("topic"))
+    if not todos:
+        return None
+
+    result = _call_retopic(vocabulary, todos)
+
+    with transaction.atomic():
+        by_id = {t.pk: t for t in todos}
+        for fix in result.fixes:
+            todo = by_id.get(fix.todo_id)
+            if todo is None:
+                continue
+            tag = (
+                Tag.objects.filter(user=user, slug=fix.topic).first()
+                if fix.topic
+                else None
+            )
+            todo.topic = tag
+            todo.save(update_fields=["topic"])
+        last = SynthesisRun.objects.first()
+        SynthesisRun.objects.create(
+            version=(last.version + 1) if last else 1,
+            model=settings.SYNTHESIS_MODEL,
+            through_entry_id=last.through_entry_id if last else 0,
+            payload={"retopic": result.model_dump()},
+        )
+    return result
+
+
+def _call_retopic(vocabulary, todos):
+    client = anthropic.Anthropic()
+    payload = {
+        "topic_slugs": vocabulary,
+        "todos": [
+            {
+                "id": t.pk,
+                "title": t.title,
+                "summary": t.summary[:200],
+                "current_topic": t.topic.slug if t.topic else "",
+            }
+            for t in todos
+        ],
+    }
+    response = client.messages.parse(
+        model=settings.SYNTHESIS_MODEL,
+        max_tokens=16000,
+        system=RETOPIC_SYSTEM,
+        messages=[{"role": "user", "content": json.dumps(payload)}],
+        output_format=RetopicResult,
+    )
+    return response.parsed_output

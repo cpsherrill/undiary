@@ -865,6 +865,55 @@ class SynthesisTests(TestCase):
             self.assertIsNone(run_synthesis(self.user))
         self.assertFalse(call.called)
 
+    def test_topic_vocabulary_is_watched_plus_recurring(self):
+        from .models import EntryTag, Tag
+        from .synthesis import _topic_vocabulary
+
+        watched = Tag.objects.create(
+            user=self.user, slug="project_idea", kind=Tag.WATCHED
+        )
+        rare = Tag.objects.create(user=self.user, slug="one_off", kind=Tag.FREE)
+        common = self.user.tags.get(slug="car")
+        for i in range(3):
+            entry = Entry.objects.create(
+                user=self.user, raw=f"n{i}", body=f"n{i}",
+                log_date=datetime.date(2026, 8, 28),
+            )
+            EntryTag.objects.create(entry=entry, tag=common)
+        vocabulary = _topic_vocabulary(self.user)
+        self.assertIn("project_idea", vocabulary)
+        self.assertIn("car", vocabulary)
+        self.assertNotIn("one_off", vocabulary)
+        self.assertEqual(vocabulary[0], "project_idea")
+
+    def test_retopic_reassigns_and_clears(self):
+        from unittest.mock import patch
+
+        from .models import Tag, Todo
+        from .synthesis import RetopicResult, TopicFix, retopic
+
+        car = self.user.tags.get(slug="car")
+        narrow = Tag.objects.create(user=self.user, slug="brake_noise", kind=Tag.FREE)
+        a = Todo.objects.create(
+            user=self.user, title="Fix the brakes", status=Todo.OPEN, topic=narrow
+        )
+        b = Todo.objects.create(
+            user=self.user, title="Mystery errand", status=Todo.OPEN, topic=narrow
+        )
+        result = RetopicResult(
+            fixes=[
+                TopicFix(todo_id=a.pk, topic="car"),
+                TopicFix(todo_id=b.pk, topic=""),
+            ]
+        )
+        with patch("core.synthesis._call_retopic", return_value=result):
+            retopic(self.user)
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertEqual(a.topic, car)
+        self.assertIsNone(b.topic)
+        self.assertEqual(a.status, Todo.OPEN)
+
     def test_invalid_seed_ids_drop_the_proposal(self):
         from unittest.mock import patch
 
