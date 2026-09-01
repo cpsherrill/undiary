@@ -4,9 +4,9 @@
 > the list either. You talk; the computer notices what wants doing,
 > watches for it getting done, and keeps the receipts.
 
-Status: design, agreed 2026-08-31 (see
-[ADR 0005](adr/0005-todos-are-a-derived-layer.md)). Nothing here is
-built yet. Open questions at the bottom are genuinely open.
+Status: design settled 2026-08-31 (see
+[ADR 0005](adr/0005-todos-are-a-derived-layer.md)); all open
+questions answered by Colin the same day. Not built yet.
 
 ## Vision
 
@@ -52,8 +52,8 @@ existing page, unchanged. Todos shows:
 
 - `todos`: user, title, summary (derived text, user-editable), status
   (proposed, open, done, dismissed), horizon (now, soon, someday),
-  due_date (nullable), topic tag (nullable FK to tags), created_at,
-  decided_at, done_at.
+  topic tag (nullable FK to tags), created_at, decided_at, done_at.
+  No due dates in v1; horizons carry the urgency until they cannot.
 - `todo_items`: todo FK, text, done (bool), position.
 - `todo_entries`: todo FK, entry FK, role (seed, color, completion),
   source (model, user), created_at. Unique per (todo, entry, role).
@@ -71,8 +71,9 @@ Third phase of `manage.py sweep`, after transcription and enrichment:
 1. Input: entries since the last run (body, tags, dates), plus a
    compact summary of every open and proposed todo, plus the dismissed
    list as a do-not-repropose set.
-2. One structured-output call (start with the enrichment model; the
-   versioned runs table makes upgrading boring). Output: proposals of
+2. One structured-output call to the synthesis model, Sonnet
+   (corpus reasoning earns the bigger model; the versioned runs table
+   makes changing it boring). Output: proposals of
    exactly three kinds: `new_todo` (title, summary, horizon guess,
    suggested topic, seed entry ids), `attach_color` (todo id, entry
    id), `complete` (todo id, completion entry id, evidence excerpt).
@@ -92,9 +93,9 @@ Third phase of `manage.py sweep`, after transcription and enrichment:
   color.
 - FR3: the sweep detects completion reports and surfaces them on the
   todo; a verdict closes it.
-- FR4: verdicts: accept, dismiss, done, reopen; horizon and due date
-  editable; title and summary editable (edits stick; re-runs must not
-  clobber, same as user tags).
+- FR4: verdicts: accept, dismiss, done, reopen; horizon editable;
+  title and summary editable (edits stick; re-runs must not clobber,
+  same as user tags).
 - FR5: line items: model may propose them inside a new todo; the user
   can add, edit, check, and delete them.
 - FR6: topics reuse the tags table; grouping and filtering by topic
@@ -113,16 +114,11 @@ Third phase of `manage.py sweep`, after transcription and enrichment:
 - `is:todo`-style search integration on the Notes tab.
 - Digest views (what closed this month, told via the linked notes).
 
-## Open questions
+## Decisions (Colin, 2026-08-31)
 
-- Q1: should a done verdict optionally write a completion entry to the
-  log ("logged: closed X") or stay silent? Current lean: silent;
-  the tab law stays pure.
-- Q2: horizons: are now, soon, someday enough, or is due_date pulling
-  its weight from day one?
-- Q3: topic = tag reuse, or a first-class topic entity? Current lean:
-  reuse tags until they creak.
-- Q4: synthesis model: start with Haiku and measure, or start with
-  Sonnet for corpus reasoning? Versioning makes either reversible.
-- Q5: should the inline post-save path also nudge synthesis (todo
-  proposals within seconds), or is the 15-minute sweep cadence enough?
+- A done verdict writes nothing to the log. The tab law stays pure.
+- Now, soon, and someday are the whole of urgency in v1; no due
+  dates.
+- Topics are reused tags, until they creak.
+- The synthesis model is Sonnet; corpus reasoning earns it.
+- The 15-minute sweep cadence is enough; no inline synthesis nudge.
