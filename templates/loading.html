@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Undiary</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: light-dark(#faf9f7, #101216);
+    --muted: light-dark(#5f6368, #9aa0a6);
+    --accent: light-dark(#1a73e8, #8ab4f8);
+    --border: light-dark(#e4e2dd, #2a2f38);
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+  }
+  .wake { display: grid; place-items: center; gap: 1.5rem; }
+  .wake svg { width: 88px; height: 88px; }
+  .loading-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 800ms linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .loading-spinner { animation-duration: 2.5s; }
+  }
+  .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wake">
+  <svg viewBox="0 0 128 128" aria-hidden="true">
+    <g transform="translate(-12 -5)">
+      <path d="M38 34 V84 A26 26 0 0 0 90 84 V34 Z" fill="#a1672e"/>
+      <path d="M38 33 V84 A26 26 0 0 0 90 84 V33" fill="none"
+            stroke="#5d3a16" stroke-width="9" stroke-linecap="butt"/>
+      <path d="M52 58 v12 M76 50 v12 M64 76 v10" stroke="#5d3a16"
+            stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+      <ellipse cx="64" cy="33" rx="30.5" ry="12" fill="#eec78f"/>
+      <ellipse cx="64" cy="33" rx="16" ry="6.5" fill="none"
+               stroke="#c9995c" stroke-width="4"/>
+      <circle cx="64" cy="33" r="2.5" fill="#c9995c"/>
+      <path d="M92 88 C104 88 114 98 116 114 C102 114 91 104 89 92 C89 90 90 88 92 88 Z"
+            fill="#6cb14e" stroke="#3f7d2c" stroke-width="5.5" stroke-linejoin="round"/>
+      <path d="M96 94 C102 99 107 104 110 109" stroke="#3f7d2c"
+            stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.65"/>
+    </g>
+  </svg>
+  <div class="loading-spinner" role="status" aria-label="Loading"></div>
+  <p class="note" id="note" hidden>No network out here. The log will keep.</p>
+</div>
+<script>
+  // Served by the service worker in place of a slow navigation: fetch
+  // the real page (the request also warms the server) and become it.
+  if (location.pathname !== "/loading") {
+    fetch(location.href, { credentials: "same-origin" })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .catch(function () {
+        document.querySelector(".loading-spinner").hidden = true;
+        document.getElementById("note").hidden = false;
+      });
+  }
+</script>
+</body>
+</html>

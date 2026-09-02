@@ -1,14 +1,16 @@
-/* Undiary service worker: install-grade. Static assets cache as they
-   are seen; page navigations go to the network and fall back to the
-   offline page. The offline capture queue is a later milestone. */
+/* Undiary service worker. Static assets cache as they are seen. Page
+   navigations race the network against a short timer: a warm server
+   wins invisibly; a cold start serves the branded loading shell,
+   which fetches the real page and becomes it. */
 
-const CACHE = "undiary-v2";
+const CACHE = "undiary-v3";
+const COLD_MS = 450;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.add("/offline"))
+      .then((cache) => cache.add("/loading"))
       .then(() => self.skipWaiting())
   );
 });
@@ -49,6 +51,18 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
+    event.respondWith(
+      (() => {
+        const network = fetch(request);
+        const timer = new Promise((resolve) =>
+          setTimeout(() => resolve(null), COLD_MS)
+        );
+        return Promise.race([network.catch(() => null), timer]).then(
+          (response) =>
+            response ||
+            caches.match("/loading").then((shell) => shell || network)
+        );
+      })()
+    );
   }
 });

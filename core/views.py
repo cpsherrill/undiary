@@ -237,6 +237,10 @@ def offline(request):
     return render(request, "offline.html")
 
 
+def loading(request):
+    return render(request, "loading.html")
+
+
 def service_worker(request):
     # Served at /sw.js so its scope covers the whole origin.
     from django.contrib.staticfiles import finders

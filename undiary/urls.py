@@ -8,6 +8,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("sw.js", views.service_worker, name="service_worker"),
     path("offline", views.offline, name="offline"),
+    path("loading", views.loading, name="loading"),
     path("todos", views.todos, name="todos"),
     path("todos/new", views.todo_create, name="todo_create"),
     path("todos/items/<int:pk>/toggle", views.todo_item_toggle, name="todo_item_toggle"),

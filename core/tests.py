@@ -575,6 +575,18 @@ class PwaTests(TestCase):
         self.assertEqual(response["Content-Type"], "text/javascript")
         self.assertIn("navigate", response.content.decode())
 
+    def test_loading_shell_is_public_and_branded(self):
+        response = self.client.get(reverse("loading"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "loading-spinner")
+        self.assertContains(response, "M38 34 V84")
+
+    def test_service_worker_precaches_the_loading_shell(self):
+        response = self.client.get("/sw.js")
+        content = response.content.decode()
+        self.assertIn('"/loading"', content)
+        self.assertIn("COLD_MS", content)
+
     def test_offline_page_is_public(self):
         response = self.client.get(reverse("offline"))
         self.assertEqual(response.status_code, 200)
