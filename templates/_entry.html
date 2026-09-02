@@ -30,10 +30,13 @@
     {% if not entry.transcribed_at %}<span class="pending-note">transcript pending</span>{% elif not entry.transcript and not entry.body %}<span class="pending-note">no speech found</span>{% endif %}
   </div>
   {% endif %}
-  {% if entry.entry_tags.all %}
+  {% if entry.entry_tags.all or entry.todo_refs %}
   <div class="entry-tags">
     {% for et in entry.entry_tags.all %}
     <a class="tag-chip{% if et.tag.kind == 'watched' %} tag-watched{% endif %}" href="/?q=%23{{ et.tag.slug }}">{{ et.tag.slug }}</a>
+    {% endfor %}
+    {% for todo in entry.todo_refs %}
+    <a class="todo-ref" href="{% url 'todos' %}#todo-{{ todo.pk }}">&#8599; {{ todo.title|truncatechars:34 }}</a>
     {% endfor %}
   </div>
   {% endif %}

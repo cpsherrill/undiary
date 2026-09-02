@@ -284,6 +284,18 @@ a.tag-chip:hover { border-color: var(--accent); color: var(--accent); }
   color: var(--accent);
 }
 
+/* Provenance chip: this note fed that todo. */
+.todo-ref {
+  padding: 0.08rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+.todo-ref:hover { color: var(--accent); border-color: var(--accent); }
+
 .entry-head {
   display: flex;
   align-items: center;

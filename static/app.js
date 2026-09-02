@@ -80,6 +80,17 @@
       }
     );
 
+    // Arriving via a provenance link: unfold, scroll, flash.
+    if (location.hash.indexOf("#todo-") === 0) {
+      var target = document.getElementById(location.hash.slice(1));
+      if (target) {
+        var enclosing = target.closest("details.todo-fold");
+        if (enclosing) enclosing.open = true;
+        target.classList.add("flash-new");
+        target.scrollIntoView({ block: "center" });
+      }
+    }
+
     document.querySelectorAll("details.todo-fold").forEach(function (fold) {
       var key = "undiary-fold-" + fold.getAttribute("data-fold");
       try {

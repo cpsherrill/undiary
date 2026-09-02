@@ -989,6 +989,19 @@ class TodoViewTests(TestCase):
         self.assertEqual(self.todo.status, Todo.OPEN)
         self.assertIsNone(self.todo.done_at)
 
+    def test_entry_shows_provenance_chip_to_its_todo(self):
+        from .models import TodoEntry
+
+        TodoEntry.objects.create(
+            todo=self.todo, entry=self.entry, role=TodoEntry.SEED
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, f'href="/todos#todo-{self.todo.pk}"')
+        self.assertContains(response, "Confirm the car sticker")
+        response = self.client.get(reverse("entry_detail", args=[self.entry.pk]))
+        self.assertContains(response, f"#todo-{self.todo.pk}")
+
     def test_dismissed_can_be_restored(self):
         from .models import Todo
 

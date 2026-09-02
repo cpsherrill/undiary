@@ -25,7 +25,8 @@ your own notes.
    checked items) are capture; no re-run touches them.
 2. **One-way flow (the tab law).** Notes feed todos, never the
    reverse. Verdicts live on todos and do not create entries. The log
-   page grows no task chrome, ever.
+   page grows no task chrome, ever; a passive provenance chip linking
+   an entry to the todo it fed is display, not flow.
 3. **Proposals sit quietly.** The sweep never notifies, badges, or
    nags. Proposals wait in the Todos tab until looked at.
 4. **Austerity guardrail.** The todo surface is a grouped list with

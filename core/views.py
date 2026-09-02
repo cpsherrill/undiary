@@ -50,20 +50,38 @@ def index(request):
     q = (request.GET.get("q") or "").strip()
     if q:
         entries = search.search_entries(request.user, q).prefetch_related(
-            "entry_tags__tag"
+            "entry_tags__tag", "todo_entries__todo"
         )[:100]
     else:
-        entries = request.user.entries.prefetch_related("entry_tags__tag")[:50]
+        entries = request.user.entries.prefetch_related(
+            "entry_tags__tag", "todo_entries__todo"
+        )[:50]
+    entries = _with_todo_refs(entries)
     return render(
         request, "index.html", {"entries": entries, "q": q, "active_tab": "notes"}
     )
 
 
+def _with_todo_refs(entries):
+    """Attach each entry's linked todos, deduped across roles. A
+    read-time courtesy chip; the data still flows one way."""
+    entries = list(entries)
+    for entry in entries:
+        entry.todo_refs = list(
+            {te.todo.pk: te.todo for te in entry.todo_entries.all()}.values()
+        )
+    return entries
+
+
 @login_required
 def entry_detail(request, pk):
     entry = get_object_or_404(
-        request.user.entries.prefetch_related("entry_tags__tag"), pk=pk
+        request.user.entries.prefetch_related(
+            "entry_tags__tag", "todo_entries__todo"
+        ),
+        pk=pk,
     )
+    entry = _with_todo_refs([entry])[0]
     return render(request, "entry.html", {"entry": entry, "active_tab": "notes"})
 
 

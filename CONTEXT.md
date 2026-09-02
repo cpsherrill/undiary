@@ -77,8 +77,10 @@ dime, so the answer to "should this be derived?" is almost always yes.
   per-entry enrichment; versioned and re-runnable like everything
   derived.
 - **The tab law.** Notes feed todos, never the reverse. The capture
-  surface stays sacred and dumb: no todo chrome on the log page, and
-  entries never know todos exist.
+  surface stays sacred and dumb: no todo chrome (verdicts, checkboxes,
+  state) on the log page, and the entry models never know todos exist.
+  A passive provenance chip on an entry, linking to a todo it fed, is
+  read-time courtesy composed in the view layer, not a reversal.
 
 ## The schema, in outline
 
