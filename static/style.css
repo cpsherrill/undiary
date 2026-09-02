@@ -551,6 +551,17 @@ button[type="submit"]:hover, .btn:hover {
   border-top: 1px solid var(--border);
 }
 .todo-done { opacity: 0.65; }
+
+/* The exit: collapse in place so the list below glides up. */
+.todo-leaving {
+  overflow: hidden;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-top-width: 0 !important;
+  transition: height 260ms ease, opacity 180ms ease,
+    padding 260ms ease, border-top-width 260ms ease;
+}
 .todo-head {
   display: flex;
   align-items: center;

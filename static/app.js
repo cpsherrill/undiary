@@ -80,6 +80,37 @@
       }
     );
 
+    // Done and Dismiss collapse the card first, so the list visibly
+    // closes the gap, then the verdict submits for real.
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      var action = form.getAttribute("action") || "";
+      if (!/\/(done|dismiss)$/.test(action)) return;
+      var card = form.closest(".todo");
+      if (!card || card.hasAttribute("data-leaving")) return;
+      if (
+        window.matchMedia &&
+        matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        return;
+      }
+      e.preventDefault();
+      card.setAttribute("data-leaving", "");
+      card.style.height = card.offsetHeight + "px";
+      requestAnimationFrame(function () {
+        card.classList.add("todo-leaving");
+        requestAnimationFrame(function () {
+          card.style.height = "0px";
+        });
+      });
+      setTimeout(function () {
+        try {
+          sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
+        } catch (err) { /* fine */ }
+        form.submit();
+      }, 300);
+    });
+
     // Arriving via a provenance link: unfold, scroll, flash.
     if (location.hash.indexOf("#todo-") === 0) {
       var target = document.getElementById(location.hash.slice(1));
