@@ -97,6 +97,7 @@ def todos(request):
         for h in (Todo.NOW, Todo.SOON, Todo.SOMEDAY)
     ]
     done = [t for t in todos_all if t.status == Todo.DONE][:20]
+    dismissed = [t for t in todos_all if t.status == Todo.DISMISSED][:20]
     return render(
         request,
         "todos.html",
@@ -104,6 +105,7 @@ def todos(request):
             "proposed": proposed,
             "horizons": horizons,
             "done": done,
+            "dismissed": dismissed,
             "topic": topic,
             "q": q,
             "outstanding": outstanding,
@@ -165,6 +167,7 @@ def todo_verdict(request, pk, action):
         "dismiss": ([Todo.PROPOSED, Todo.OPEN], Todo.DISMISSED, "decided_at"),
         "done": ([Todo.OPEN], Todo.DONE, "done_at"),
         "reopen": ([Todo.DONE], Todo.OPEN, None),
+        "restore": ([Todo.DISMISSED], Todo.PROPOSED, None),
     }
     if action not in transitions:
         return redirect("todos")
@@ -176,6 +179,8 @@ def todo_verdict(request, pk, action):
             setattr(todo, stamp, timezone.now())
         if action == "reopen":
             todo.done_at = None
+        if action == "restore":
+            todo.decided_at = None
         todo.save()
     return redirect("todos")
 

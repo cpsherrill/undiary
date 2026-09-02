@@ -1,4 +1,4 @@
-<article class="todo{% if todo.status == 'done' %} todo-done{% endif %}" id="todo-{{ todo.pk }}" data-created="{{ todo.created_at|date:'c' }}">
+<article class="todo{% if todo.status == 'done' or todo.status == 'dismissed' %} todo-done{% endif %}" id="todo-{{ todo.pk }}" data-created="{{ todo.created_at|date:'c' }}">
   <div class="todo-head">
     <h4 class="todo-title">{{ todo.title }}</h4>
     <div class="todo-controls">
@@ -17,6 +17,8 @@
       <form method="post" action="{% url 'todo_verdict' todo.pk 'dismiss' %}">{% csrf_token %}<button class="quiet" type="submit">Dismiss</button></form>
       {% elif todo.status == 'done' %}
       <form method="post" action="{% url 'todo_verdict' todo.pk 'reopen' %}">{% csrf_token %}<button class="quiet" type="submit">Reopen</button></form>
+      {% elif todo.status == 'dismissed' %}
+      <form method="post" action="{% url 'todo_verdict' todo.pk 'restore' %}">{% csrf_token %}<button class="quiet" type="submit">Restore</button></form>
       {% endif %}
     </div>
   </div>

@@ -50,4 +50,13 @@
     {% endfor %}
   </details>
 </section>
+
+<section class="todo-section">
+  <details class="todo-fold" data-fold="dismissed">
+    <summary><span class="fold-title">Dismissed</span><span class="fold-count">{{ dismissed|length }}</span></summary>
+    {% for todo in dismissed %}{% include "_todo.html" with todo=todo %}{% empty %}
+    <p class="empty">Nothing dismissed. The proposals live charmed lives.</p>
+    {% endfor %}
+  </details>
+</section>
 {% endblock %}

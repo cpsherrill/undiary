@@ -989,6 +989,22 @@ class TodoViewTests(TestCase):
         self.assertEqual(self.todo.status, Todo.OPEN)
         self.assertIsNone(self.todo.done_at)
 
+    def test_dismissed_can_be_restored(self):
+        from .models import Todo
+
+        self.client.force_login(self.user)
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "accept"]))
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "dismiss"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.DISMISSED)
+        response = self.client.get(reverse("todos"))
+        self.assertContains(response, 'data-fold="dismissed"')
+        self.assertContains(response, ">Restore</button>")
+        self.client.post(reverse("todo_verdict", args=[self.todo.pk, "restore"]))
+        self.todo.refresh_from_db()
+        self.assertEqual(self.todo.status, Todo.PROPOSED)
+        self.assertIsNone(self.todo.decided_at)
+
     def test_done_never_writes_an_entry(self):
         self.client.force_login(self.user)
         before = self.user.entries.count()
