@@ -182,6 +182,23 @@ def todo_verdict(request, pk, action):
 
 @login_required
 @require_POST
+def todo_item_add(request, pk):
+    from django.db.models import Max
+
+    from .models import TodoItem
+
+    todo = request.user.todos.filter(pk=pk).first()
+    text = (request.POST.get("text") or "").strip()[:200]
+    if todo and text:
+        last = todo.items.aggregate(Max("position"))["position__max"]
+        TodoItem.objects.create(
+            todo=todo, text=text, position=(last + 1) if last is not None else 0
+        )
+    return redirect("todos")
+
+
+@login_required
+@require_POST
 def todo_item_toggle(request, pk):
     from .models import TodoItem
 

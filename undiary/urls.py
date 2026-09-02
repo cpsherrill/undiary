@@ -11,6 +11,7 @@ urlpatterns = [
     path("todos", views.todos, name="todos"),
     path("todos/new", views.todo_create, name="todo_create"),
     path("todos/items/<int:pk>/toggle", views.todo_item_toggle, name="todo_item_toggle"),
+    path("todos/<int:pk>/items", views.todo_item_add, name="todo_item_add"),
     path("todos/<int:pk>/note", views.todo_note, name="todo_note"),
     path("todos/<int:pk>/horizon", views.todo_horizon, name="todo_horizon"),
     path("todos/<int:pk>/<slug:action>", views.todo_verdict, name="todo_verdict"),

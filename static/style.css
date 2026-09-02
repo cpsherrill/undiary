@@ -462,6 +462,42 @@ button[type="submit"]:hover, .btn:hover {
 }
 .todo-thought a:hover { color: var(--accent); }
 
+.item-add { margin-top: 0.3rem; }
+.item-add summary {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.item-add summary::-webkit-details-marker { display: none; }
+.item-add summary:hover { color: var(--accent); border-color: var(--accent); }
+.item-add[open] summary { color: var(--accent); border-color: var(--accent); }
+.item-add form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.item-add input[type="text"] {
+  flex: 1;
+  max-width: 24rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
 .todo-addnote { margin-top: 0.45rem; }
 .todo-addnote summary {
   color: var(--muted);

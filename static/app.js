@@ -69,6 +69,17 @@
       localStorage.setItem(SEEN_KEY, new Date().toISOString());
     } catch (e) { /* fine */ }
 
+    document.querySelectorAll("details.item-add, details.todo-addnote").forEach(
+      function (d) {
+        d.addEventListener("toggle", function () {
+          if (d.open) {
+            var field = d.querySelector("input[type=text], textarea");
+            if (field) field.focus();
+          }
+        });
+      }
+    );
+
     document.querySelectorAll("details.todo-fold").forEach(function (fold) {
       var key = "undiary-fold-" + fold.getAttribute("data-fold");
       try {

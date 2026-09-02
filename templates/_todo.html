@@ -36,6 +36,16 @@
     {% endfor %}
   </ul>
   {% endif %}
+  {% if todo.status == 'proposed' or todo.status == 'open' %}
+  <details class="item-add">
+    <summary aria-label="Add a line item" title="Add a line item">+</summary>
+    <form method="post" action="{% url 'todo_item_add' todo.pk %}">
+      {% csrf_token %}
+      <input type="text" name="text" maxlength="200" aria-label="New line item" required>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+  {% endif %}
   {% for te in todo.todo_entries.all %}{% if te.role == 'color' %}
   <p class="todo-thought"><a href="{% url 'entry_detail' te.entry.pk %}">{{ te.entry.log_date|date:"m-d" }}</a> {{ te.entry.body|truncatechars:140 }}</p>
   {% endif %}{% endfor %}

@@ -1100,6 +1100,33 @@ class TodoTabFeatureTests(TestCase):
         self.client.post(reverse("todo_note", args=[self.todo.pk]), {"text": " "})
         self.assertEqual(self.user.entries.count(), 0)
 
+    def test_plus_adds_line_item_and_positions_it(self):
+        from .models import TodoItem
+
+        TodoItem.objects.create(todo=self.todo, text="first", position=0)
+        self.client.post(
+            reverse("todo_item_add", args=[self.todo.pk]), {"text": "second"}
+        )
+        items = list(self.todo.items.values_list("text", "position"))
+        self.assertEqual(items, [("first", 0), ("second", 1)])
+
+    def test_plus_creates_the_list_when_none_exists(self):
+        self.client.post(
+            reverse("todo_item_add", args=[self.todo.pk]), {"text": "born first"}
+        )
+        item = self.todo.items.get()
+        self.assertEqual((item.text, item.position, item.done), ("born first", 0, False))
+
+    def test_blank_item_ignored_and_stranger_blocked(self):
+        self.client.post(reverse("todo_item_add", args=[self.todo.pk]), {"text": " "})
+        self.assertEqual(self.todo.items.count(), 0)
+        stranger = make_user("stranger@example.com")
+        self.client.force_login(stranger)
+        self.client.post(
+            reverse("todo_item_add", args=[self.todo.pk]), {"text": "intrusion"}
+        )
+        self.assertEqual(self.todo.items.count(), 0)
+
     def test_stranger_cannot_note_anothers_todo(self):
         stranger = make_user("stranger@example.com")
         self.client.force_login(stranger)
