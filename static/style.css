@@ -468,16 +468,20 @@ button[type="submit"]:hover, .btn:hover {
   place-items: center;
   width: 1.45rem;
   height: 1.45rem;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
   color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1;
   cursor: pointer;
   list-style: none;
   user-select: none;
 }
 .item-add summary::-webkit-details-marker { display: none; }
+.item-add summary::before {
+  content: "+";
+  font-size: 0.95rem;
+  line-height: 1;
+}
 .item-add summary:hover { color: var(--accent); border-color: var(--accent); }
 .item-add[open] summary { color: var(--accent); border-color: var(--accent); }
 .item-add form {

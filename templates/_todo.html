@@ -38,7 +38,7 @@
   {% endif %}
   {% if todo.status == 'proposed' or todo.status == 'open' %}
   <details class="item-add">
-    <summary aria-label="Add a line item" title="Add a line item">+</summary>
+    <summary aria-label="Add a line item" title="Add a line item"></summary>
     <form method="post" action="{% url 'todo_item_add' todo.pk %}">
       {% csrf_token %}
       <input type="text" name="text" maxlength="200" aria-label="New line item" required>
