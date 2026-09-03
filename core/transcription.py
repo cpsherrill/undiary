@@ -25,17 +25,25 @@ def transcribe_entry(entry):
     with default_storage.open(entry.audio_key) as f:
         data = f.read()
 
+    phrases = list(entry.user.lexicon_terms.all())
+
     try:
-        text = _recognize(data)
+        text = _recognize(data, phrases)
     except _sync_declined_errors() as exc:
         # Too long or an undecodable container: transcode to mono FLAC,
         # split under the sync limit, and recognize the pieces.
         logger.info("sync recognition declined (%s); segmenting", exc)
-        text = _recognize_segmented(data)
+        text = _recognize_segmented(data, phrases)
 
+    # On a re-hear, the display copy follows the transcript only when
+    # it was never anything else: empty, or exactly the old transcript
+    # of an audio-only entry. A user's edit outranks better ears.
+    old_transcript = entry.transcript
     entry.transcript = text
     entry.transcribed_at = timezone.now()
-    if text and not entry.body:
+    if text and (
+        not entry.body or (not entry.raw and entry.body == old_transcript)
+    ):
         entry.body = text
     entry.save(update_fields=["transcript", "transcribed_at", "body", "edited_at"])
     return entry
@@ -74,13 +82,30 @@ def _recognizer():
     return f"projects/{_project_id()}/locations/global/recognizers/_"
 
 
-def _config():
+def _config(phrases=None):
     from google.cloud.speech_v2.types import cloud_speech
 
+    adaptation = None
+    if phrases:
+        adaptation = cloud_speech.SpeechAdaptation(
+            phrase_sets=[
+                cloud_speech.SpeechAdaptation.AdaptationPhraseSet(
+                    inline_phrase_set=cloud_speech.PhraseSet(
+                        phrases=[
+                            cloud_speech.PhraseSet.Phrase(
+                                value=term.phrase, boost=term.boost
+                            )
+                            for term in phrases
+                        ]
+                    )
+                )
+            ]
+        )
     return cloud_speech.RecognitionConfig(
         auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
         language_codes=[settings.SPEECH_LANGUAGE],
         model="long",
+        adaptation=adaptation,
     )
 
 
@@ -90,21 +115,21 @@ def _join(results):
     ).strip()
 
 
-def _recognize(data):
+def _recognize(data, phrases=None):
     from google.cloud.speech_v2 import SpeechClient
     from google.cloud.speech_v2.types import cloud_speech
 
     client = SpeechClient()
     response = client.recognize(
         request=cloud_speech.RecognizeRequest(
-            recognizer=_recognizer(), config=_config(), content=data
+            recognizer=_recognizer(), config=_config(phrases), content=data
         ),
         timeout=60,
     )
     return _join(response.results)
 
 
-def _recognize_segmented(data):
+def _recognize_segmented(data, phrases=None):
     """ffmpeg decodes anything, so anything becomes sub-limit mono
     FLAC segments; each is recognized with our own credentials. No
     service agents, no swallowed per-file errors."""
@@ -131,6 +156,7 @@ def _recognize_segmented(data):
         if not segments:
             raise RuntimeError("ffmpeg produced no segments")
         parts = [
-            _recognize(pathlib.Path(seg).read_bytes()) for seg in segments
+            _recognize(pathlib.Path(seg).read_bytes(), phrases)
+            for seg in segments
         ]
     return " ".join(p for p in parts if p).strip()

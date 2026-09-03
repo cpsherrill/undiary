@@ -4,6 +4,7 @@ from .models import (
     Enrichment,
     Entry,
     EntryTag,
+    LexiconTerm,
     SynthesisRun,
     Tag,
     Todo,
@@ -57,6 +58,13 @@ class TodoAdmin(admin.ModelAdmin):
     list_filter = ("status", "horizon")
     search_fields = ("title", "summary")
     inlines = [TodoItemInline, TodoEntryInline]
+
+
+@admin.register(LexiconTerm)
+class LexiconTermAdmin(admin.ModelAdmin):
+    list_display = ("phrase", "boost", "definition", "user")
+    list_editable = ("boost",)
+    search_fields = ("phrase", "definition")
 
 
 @admin.register(SynthesisRun)

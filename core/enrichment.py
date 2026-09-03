@@ -46,7 +46,9 @@ receive one entry and return structured metadata about it. Rules:
   entry into excerpt, verbatim.
 - people, places, projects: only names actually present in the entry.
 - summary: one plain sentence, at most twenty words.
-- mood: one lowercase word, or empty when unclear."""
+- mood: one lowercase word, or empty when unclear.
+- lexicon, when provided: the author's proper nouns with meanings.
+  Use these spellings, and read ambiguous mentions accordingly."""
 
 
 def slugify_tag(value):
@@ -61,17 +63,26 @@ def enrich_entry(entry, timeout=None):
         return None
 
     watched = list(entry.user.tags.filter(kind=Tag.WATCHED, active=True))
-    result = _call_model(watched, text, entry.log_date, timeout=timeout)
+    lexicon = [
+        {"phrase": term.phrase, "definition": term.definition}
+        for term in entry.user.lexicon_terms.exclude(definition="")
+    ]
+    result = _call_model(
+        watched, text, entry.log_date, timeout=timeout, lexicon=lexicon
+    )
     return _apply(entry, result, settings.ENRICHMENT_MODEL)
 
 
-def _call_model(watched, text, log_date, timeout=None):
+def _call_model(watched, text, log_date, timeout=None, lexicon=None):
     client = anthropic.Anthropic()
     if timeout is not None:
         client = client.with_options(timeout=timeout, max_retries=0)
     watchlist = [
         {"slug": t.slug, "definition": t.definition} for t in watched
     ]
+    lexicon_block = (
+        f"Lexicon:\n{json.dumps(lexicon)}\n\n" if lexicon else ""
+    )
     response = client.messages.parse(
         model=settings.ENRICHMENT_MODEL,
         max_tokens=1024,
@@ -81,7 +92,8 @@ def _call_model(watched, text, log_date, timeout=None):
                 "role": "user",
                 "content": (
                     f"Watched tags:\n{json.dumps(watchlist)}\n\n"
-                    f"Entry, dated {log_date}:\n\n{text}"
+                    + lexicon_block
+                    + f"Entry, dated {log_date}:\n\n{text}"
                 ),
             }
         ],

@@ -417,6 +417,123 @@ class EnrichmentTests(TestCase):
         self.assertContains(response, "woodworking")
 
 
+class LexiconTests(TestCase):
+    def test_defaults_seed_once(self):
+        from .models import LexiconTerm
+
+        user = make_user()
+        LexiconTerm.ensure_defaults(user)
+        LexiconTerm.ensure_defaults(user)
+        self.assertEqual(
+            user.lexicon_terms.filter(phrase="Crowable").count(), 1
+        )
+        self.assertTrue(user.lexicon_terms.filter(phrase="Undiary").exists())
+
+    def test_config_carries_adaptation_phrases(self):
+        from .models import LexiconTerm
+        from .transcription import _config
+
+        user = make_user()
+        terms = [
+            LexiconTerm.objects.create(user=user, phrase="Crowable", boost=12.0),
+            LexiconTerm.objects.create(user=user, phrase="Undiary"),
+        ]
+        config = _config(terms)
+        phrases = config.adaptation.phrase_sets[0].inline_phrase_set.phrases
+        self.assertEqual(
+            {(p.value, p.boost) for p in phrases},
+            {("Crowable", 12.0), ("Undiary", 10.0)},
+        )
+
+    def test_config_without_phrases_has_no_adaptation(self):
+        from .transcription import _config
+
+        config = _config(None)
+        self.assertFalse(config.adaptation.phrase_sets)
+
+    def test_transcribe_passes_user_terms(self):
+        import tempfile
+        from unittest.mock import patch
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core.files.storage import default_storage
+        from .models import Entry, LexiconTerm
+        from .transcription import transcribe_entry
+
+        user = make_user()
+        LexiconTerm.objects.create(user=user, phrase="Crowable")
+        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
+            key = default_storage.save(
+                "audio/t.webm", SimpleUploadedFile("t.webm", b"x", "audio/webm")
+            )
+            entry = Entry.objects.create(
+                user=user, audio_key=key, log_date=datetime.date(2026, 9, 1)
+            )
+            with patch(
+                "core.transcription._recognize", return_value="heard Crowable"
+            ) as rec:
+                transcribe_entry(entry)
+        passed = rec.call_args.args[1]
+        self.assertEqual([t.phrase for t in passed], ["Crowable"])
+
+    def test_rehear_updates_unedited_audio_body_only(self):
+        import tempfile
+        from unittest.mock import patch
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.core.files.storage import default_storage
+        from .models import Entry
+        from .transcription import transcribe_entry
+
+        user = make_user()
+        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
+            key = default_storage.save(
+                "audio/r.webm", SimpleUploadedFile("r.webm", b"x", "audio/webm")
+            )
+            fresh = Entry.objects.create(
+                user=user, audio_key=key, log_date=datetime.date(2026, 9, 1)
+            )
+            with patch("core.transcription._recognize", return_value="undy note"):
+                transcribe_entry(fresh)
+            fresh.refresh_from_db()
+            self.assertEqual(fresh.body, "undy note")
+            with patch("core.transcription._recognize", return_value="Undiary note"):
+                transcribe_entry(fresh)
+            fresh.refresh_from_db()
+            self.assertEqual(fresh.body, "Undiary note")
+            fresh.body = "my own edit"
+            fresh.save()
+            with patch("core.transcription._recognize", return_value="third pass"):
+                transcribe_entry(fresh)
+            fresh.refresh_from_db()
+            self.assertEqual(fresh.body, "my own edit")
+            self.assertEqual(fresh.transcript, "third pass")
+
+    def test_enrichment_receives_defined_terms_only(self):
+        from unittest.mock import patch
+
+        from .models import Entry, LexiconTerm
+        from .enrichment import enrich_entry
+
+        user = make_user()
+        LexiconTerm.objects.create(
+            user=user, phrase="Crowable", definition="the crow project"
+        )
+        LexiconTerm.objects.create(user=user, phrase="FOSAIC")
+        entry = Entry.objects.create(
+            user=user, raw="Crowable news", body="Crowable news",
+            log_date=datetime.date(2026, 9, 1),
+        )
+        with patch(
+            "core.enrichment._call_model", return_value=result_fixture(watched=[])
+        ) as call:
+            enrich_entry(entry)
+        lexicon = call.call_args.kwargs["lexicon"]
+        self.assertEqual(
+            lexicon, [{"phrase": "Crowable", "definition": "the crow project"}]
+        )
+
+
 @override_settings(PIPELINES_INLINE_DISABLED=False)
 class TranscriptionTests(TestCase):
     @classmethod

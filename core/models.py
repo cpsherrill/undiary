@@ -66,6 +66,52 @@ class Entry(models.Model):
         return local.replace(tzinfo=None)
 
 
+# Words the transcriber should know how to spell. Definitions are for
+# the reading models, not the ear.
+DEFAULT_LEXICON = [
+    "Undiary",
+    "Crowable",
+    "FOSAIC",
+    "Wispr Flow",
+    "Pindifferent",
+    "Tinderbox",
+    "Alder Box",
+    "FishMash",
+    "JokeJudge",
+]
+
+
+class LexiconTerm(models.Model):
+    """A spelling the transcriber is biased toward, with an optional
+    definition for the text models. Distinct from tags: lexicon terms
+    are cased proper nouns for the ear; tags are slugs for the filing."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="lexicon_terms",
+    )
+    phrase = models.CharField(max_length=100)
+    definition = models.TextField(blank=True, default="")
+    boost = models.FloatField(default=10.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["phrase"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "phrase"], name="one_phrase_per_user"
+            ),
+        ]
+
+    def __str__(self):
+        return self.phrase
+
+    @classmethod
+    def ensure_defaults(cls, user):
+        for phrase in DEFAULT_LEXICON:
+            cls.objects.get_or_create(user=user, phrase=phrase)
+
+
 # The first watched tag every user starts with; more arrive by hand.
 DEFAULT_WATCHED_TAGS = {
     "project_idea": (

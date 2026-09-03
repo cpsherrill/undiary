@@ -37,10 +37,11 @@ class AllowlistSocialAdapter(DefaultSocialAccountAdapter):
         return _allowed(sociallogin.user.email)
 
     def save_user(self, request, sociallogin, form=None):
-        from .models import Tag
+        from .models import LexiconTerm, Tag
 
         user = promote_if_admin(super().save_user(request, sociallogin, form))
         Tag.ensure_defaults(user)
+        LexiconTerm.ensure_defaults(user)
         return user
 
     def pre_social_login(self, request, sociallogin):
