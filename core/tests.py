@@ -761,7 +761,7 @@ class EntryDetailTests(TestCase):
 
         from django.conf import settings
 
-        for name in ["index.html", "entry.html", "base.html"]:
+        for name in ["app.html", "entry.html", "base.html"]:
             source = (Path(settings.BASE_DIR) / "templates" / name).read_text()
             self.assertNotIn('src="/static/', source, name)
 
@@ -1292,6 +1292,109 @@ class TodoTabFeatureTests(TestCase):
             reverse("todo_note", args=[self.todo.pk]), {"text": "mine now"}
         )
         self.assertEqual(self.todo.todo_entries.count(), 0)
+
+
+class PaneTests(TestCase):
+    """Both tabs render into every page; the client slides between
+    them and refreshes a pane's body by fingerprint."""
+
+    def setUp(self):
+        from .models import Todo
+
+        self.user = make_user()
+        self.client.force_login(self.user)
+        Entry.objects.create(
+            user=self.user, raw="The birdhouse gains a roof.",
+            body="The birdhouse gains a roof.", log_date=datetime.date(2026, 8, 28),
+        )
+        Entry.objects.create(
+            user=self.user, raw="Groceries and rain.", body="Groceries and rain.",
+            log_date=datetime.date(2026, 8, 29),
+        )
+        Todo.objects.create(
+            user=self.user, title="Paint the fence", status=Todo.OPEN,
+            horizon=Todo.SOON, decided_at=timezone.now(),
+        )
+        Todo.objects.create(
+            user=self.user, title="Buy paint", status=Todo.OPEN,
+            horizon=Todo.NOW, decided_at=timezone.now(),
+        )
+
+    def _pane_tag(self, html, name):
+        import re
+
+        return re.search(rf'<section class="pane" id="pane-{name}"[^>]*>', html).group(0)
+
+    def test_both_panes_render_on_either_url(self):
+        html = self.client.get(reverse("index")).content.decode()
+        self.assertNotIn(" hidden", self._pane_tag(html, "notes"))
+        self.assertIn(" hidden", self._pane_tag(html, "todos"))
+        self.assertIn("The birdhouse gains a roof.", html)
+        self.assertIn("Paint the fence", html)
+
+        html = self.client.get(reverse("todos")).content.decode()
+        self.assertIn(" hidden", self._pane_tag(html, "notes"))
+        self.assertNotIn(" hidden", self._pane_tag(html, "todos"))
+        self.assertIn("The birdhouse gains a roof.", html)
+        self.assertIn("Paint the fence", html)
+
+    def test_tabs_name_their_panes(self):
+        response = self.client.get(reverse("index"))
+        self.assertContains(response, 'data-tab="notes"')
+        self.assertContains(response, 'data-tab="todos"')
+
+    def test_search_scopes_to_the_addressed_pane(self):
+        html = self.client.get(reverse("index"), {"q": "birdhouse"}).content.decode()
+        self.assertIn("The birdhouse gains a roof.", html)
+        self.assertNotIn("Groceries and rain.", html)
+        self.assertIn("Paint the fence", html)
+        self.assertIn("Buy paint", html)
+        self.assertIn('data-url="/?q=birdhouse"', self._pane_tag(html, "notes"))
+        self.assertIn('data-url="/todos"', self._pane_tag(html, "todos"))
+
+        html = self.client.get(reverse("todos"), {"q": "fence"}).content.decode()
+        self.assertIn("Paint the fence", html)
+        self.assertNotIn("Buy paint", html)
+        self.assertIn("Groceries and rain.", html)
+        self.assertIn('data-url="/"', self._pane_tag(html, "notes"))
+        self.assertIn('data-url="/todos?q=fence"', self._pane_tag(html, "todos"))
+
+    def test_pane_request_returns_the_body_alone_with_a_fingerprint(self):
+        import re
+
+        from .models import Todo
+
+        response = self.client.get(reverse("todos"), headers={"X-Pane": "1"})
+        body = response.content.decode()
+        self.assertNotIn("<html", body)
+        self.assertNotIn('id="pane-todos"', body)
+        self.assertIn('data-fold="soon"', body)
+        self.assertIn("Paint the fence", body)
+        digest = response["X-Pane-Hash"]
+        self.assertEqual(response["Cache-Control"], "no-store")
+
+        # The page carries the same fingerprint, CSRF masking aside.
+        page = self.client.get(reverse("todos")).content.decode()
+        in_page = re.search(
+            r'id="pane-todos"[\s\S]*?data-pane-body data-hash="([0-9a-f]+)"', page
+        ).group(1)
+        self.assertEqual(digest, in_page)
+
+        Todo.objects.create(
+            user=self.user, title="Sand the gate", status=Todo.OPEN,
+            horizon=Todo.NOW, decided_at=timezone.now(),
+        )
+        moved = self.client.get(reverse("todos"), headers={"X-Pane": "1"})
+        self.assertNotEqual(moved["X-Pane-Hash"], digest)
+
+    def test_notes_pane_request_honors_its_search(self):
+        response = self.client.get(
+            reverse("index"), {"q": "birdhouse"}, headers={"X-Pane": "1"}
+        )
+        body = response.content.decode()
+        self.assertIn("1 match", body)
+        self.assertNotIn("Groceries and rain.", body)
+        self.assertNotIn("log-form", body)
 
 
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])

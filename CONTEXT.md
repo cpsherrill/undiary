@@ -80,7 +80,9 @@ dime, so the answer to "should this be derived?" is almost always yes.
   surface stays sacred and dumb: no todo chrome (verdicts, checkboxes,
   state) on the log page, and the entry models never know todos exist.
   A passive provenance chip on an entry, linking to a todo it fed, is
-  read-time courtesy composed in the view layer, not a reversal.
+  read-time courtesy composed in the view layer, not a reversal. Both
+  tabs render into one page and slide in place; that is display, and
+  the law is about data.
 
 ## The schema, in outline
 

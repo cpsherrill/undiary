@@ -1,25 +1,8 @@
-{% extends "base.html" %}
-
-{% block title %}Todos &middot; Undiary{% endblock %}
-
-{% block content %}
-<form method="post" action="{% url 'todo_create' %}" class="todo-add">
-  {% csrf_token %}
-  <input type="text" name="title" maxlength="120" placeholder="Add a todo"
-         aria-label="New todo title" required>
-  <select class="mic-select" name="horizon" aria-label="Horizon">
-    <option value="now">Now</option>
-    <option value="soon" selected>Soon</option>
-    <option value="someday">Someday</option>
-  </select>
-  <button type="submit">Add</button>
-</form>
-
-<form method="get" class="search-form todo-search" role="search">
-  <input type="search" name="q" value="{{ q }}" placeholder="Search todos"
+<form method="get" action="{% url 'todos' %}" class="search-form todo-search" role="search">
+  <input type="search" name="q" value="{{ todo_q }}" placeholder="Search todos"
          aria-label="Search todos">
   {% if topic %}<input type="hidden" name="topic" value="{{ topic }}">{% endif %}
-  {% if q %}<a class="search-clear" href="{% url 'todos' %}{% if topic %}?topic={{ topic }}{% endif %}">Clear</a>{% endif %}
+  {% if todo_q %}<a class="search-clear" href="{% url 'todos' %}{% if topic %}?topic={{ topic }}{% endif %}">Clear</a>{% endif %}
 </form>
 
 <p class="search-note">{{ outstanding }} outstanding.{% if topic %} Topic: {{ topic }} &middot; <a class="search-clear" href="{% url 'todos' %}">Clear</a>{% endif %}</p>
@@ -59,4 +42,3 @@
     {% endfor %}
   </details>
 </section>
-{% endblock %}

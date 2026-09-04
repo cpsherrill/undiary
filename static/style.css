@@ -698,3 +698,10 @@ span.item-done { color: var(--muted); text-decoration: line-through; }
 }
 .gate h1 { margin: 0 0 0.3rem; }
 .gate-sub { margin: 0 0 1.75rem; color: var(--muted); }
+
+/* Panes: both tabs stay in the DOM. The one not showing leaves the
+   flow entirely; during a slide the incoming pane rides absolutely
+   over the outgoing one and the container clips the overshoot. */
+.panes { position: relative; }
+.panes.sliding { overflow: hidden; }
+.pane-in { position: absolute; left: 0; right: 0; }

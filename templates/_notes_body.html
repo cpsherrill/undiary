@@ -1,0 +1,16 @@
+<form method="get" action="{% url 'index' %}" class="search-form" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search, or #tag"
+         aria-label="Search entries">
+  {% if q %}<a class="search-clear" href="{% url 'index' %}">Clear</a>{% endif %}
+</form>
+{% if q %}
+<p class="search-note">{{ entries|length }} match{{ entries|length|pluralize:"es" }}</p>
+{% endif %}
+
+<section class="entries{% if q %} entries-searching{% endif %}">
+  {% for entry in entries %}
+  {% include "_entry.html" with entry=entry %}
+  {% empty %}
+  <p class="empty">{% if q %}Nothing matches.{% else %}Nothing here yet.{% endif %}</p>
+  {% endfor %}
+</section>

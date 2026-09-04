@@ -1,11 +1,15 @@
 import datetime
+import hashlib
 import mimetypes
+import re
 import uuid
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -48,18 +52,52 @@ def index(request):
         return redirect("index")
 
     q = (request.GET.get("q") or "").strip()
+    notes = _notes_context(request.user, q)
+    if _wants_pane(request):
+        return _pane_response(request, "_notes_body.html", notes)
+    return _render_app(
+        request,
+        "notes",
+        notes,
+        _todos_context(request.user, "", ""),
+        notes_url=_notes_url(q),
+        todos_url=_todos_url("", ""),
+    )
+
+
+@login_required
+def todos(request):
+    topic = (request.GET.get("topic") or "").strip()
+    q = (request.GET.get("q") or "").strip()
+    todos_ctx = _todos_context(request.user, q, topic)
+    if _wants_pane(request):
+        return _pane_response(request, "_todos_body.html", todos_ctx)
+    return _render_app(
+        request,
+        "todos",
+        _notes_context(request.user, ""),
+        todos_ctx,
+        notes_url=_notes_url(""),
+        todos_url=_todos_url(q, topic),
+    )
+
+
+# ---- One page, two panes ----------------------------------------------
+# Both tabs render into every page so the client can slide between
+# them without a load. The pathname says which pane is showing and
+# which pane a search applies to; the other pane arrives unfiltered.
+
+
+def _notes_context(user, q):
     if q:
-        entries = search.search_entries(request.user, q).prefetch_related(
+        entries = search.search_entries(user, q).prefetch_related(
             "entry_tags__tag", "todo_entries__todo"
         )[:100]
     else:
-        entries = request.user.entries.prefetch_related(
+        entries = user.entries.prefetch_related(
             "entry_tags__tag", "todo_entries__todo"
         )[:50]
-    entries = _with_todo_refs(entries)
-    return render(
-        request, "index.html", {"entries": entries, "q": q, "active_tab": "notes"}
-    )
+    return {"entries": _with_todo_refs(entries), "q": q}
 
 
 def _with_todo_refs(entries):
@@ -73,27 +111,12 @@ def _with_todo_refs(entries):
     return entries
 
 
-@login_required
-def entry_detail(request, pk):
-    entry = get_object_or_404(
-        request.user.entries.prefetch_related(
-            "entry_tags__tag", "todo_entries__todo"
-        ),
-        pk=pk,
-    )
-    entry = _with_todo_refs([entry])[0]
-    return render(request, "entry.html", {"entry": entry, "active_tab": "notes"})
-
-
-@login_required
-def todos(request):
+def _todos_context(user, q, topic):
     from django.db.models import Q
 
     from .models import Todo
 
-    topic = (request.GET.get("topic") or "").strip()
-    q = (request.GET.get("q") or "").strip()
-    qs = request.user.todos.select_related("topic").prefetch_related(
+    qs = user.todos.select_related("topic").prefetch_related(
         "items", "todo_entries__entry"
     )
     if topic:
@@ -104,9 +127,7 @@ def todos(request):
             | Q(summary__icontains=q)
             | Q(items__text__icontains=q)
         ).distinct()
-    outstanding = request.user.todos.filter(
-        status__in=[Todo.PROPOSED, Todo.OPEN]
-    ).count()
+    outstanding = user.todos.filter(status__in=[Todo.PROPOSED, Todo.OPEN]).count()
     todos_all = list(qs)
     proposed = [t for t in todos_all if t.status == Todo.PROPOSED]
     open_todos = [t for t in todos_all if t.status == Todo.OPEN]
@@ -116,20 +137,79 @@ def todos(request):
     ]
     done = [t for t in todos_all if t.status == Todo.DONE][:20]
     dismissed = [t for t in todos_all if t.status == Todo.DISMISSED][:20]
+    return {
+        "proposed": proposed,
+        "horizons": horizons,
+        "done": done,
+        "dismissed": dismissed,
+        "topic": topic,
+        "todo_q": q,
+        "outstanding": outstanding,
+    }
+
+
+def _notes_url(q):
+    return reverse("index") + (f"?{urlencode({'q': q})}" if q else "")
+
+
+def _todos_url(q, topic):
+    params = {key: value for key, value in (("q", q), ("topic", topic)) if value}
+    return reverse("todos") + (f"?{urlencode(params)}" if params else "")
+
+
+def _wants_pane(request):
+    """app.js asks for a pane body alone when refreshing one in place."""
+    return request.headers.get("X-Pane") == "1"
+
+
+_CSRF_VALUE = re.compile(r'name="csrfmiddlewaretoken" value="[^"]*"')
+
+
+def _render_body(request, template, context):
+    """A pane body and its fingerprint, so the client can tell a changed
+    pane from a merely re-rendered one. The CSRF token is masked afresh
+    on every render and stays out of the hash."""
+    html = render_to_string(template, context, request=request)
+    digest = hashlib.sha256(_CSRF_VALUE.sub("", html).encode()).hexdigest()[:16]
+    return html, digest
+
+
+def _pane_response(request, template, context):
+    html, digest = _render_body(request, template, context)
+    response = HttpResponse(html)
+    response["X-Pane-Hash"] = digest
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+def _render_app(request, active, notes, todos, notes_url, todos_url):
+    notes_html, notes_hash = _render_body(request, "_notes_body.html", notes)
+    todos_html, todos_hash = _render_body(request, "_todos_body.html", todos)
     return render(
         request,
-        "todos.html",
+        "app.html",
         {
-            "proposed": proposed,
-            "horizons": horizons,
-            "done": done,
-            "dismissed": dismissed,
-            "topic": topic,
-            "q": q,
-            "outstanding": outstanding,
-            "active_tab": "todos",
+            "active_tab": active,
+            "notes_body": notes_html,
+            "notes_hash": notes_hash,
+            "notes_url": notes_url,
+            "todos_body": todos_html,
+            "todos_hash": todos_hash,
+            "todos_url": todos_url,
         },
     )
+
+
+@login_required
+def entry_detail(request, pk):
+    entry = get_object_or_404(
+        request.user.entries.prefetch_related(
+            "entry_tags__tag", "todo_entries__todo"
+        ),
+        pk=pk,
+    )
+    entry = _with_todo_refs([entry])[0]
+    return render(request, "entry.html", {"entry": entry, "active_tab": "notes"})
 
 
 @login_required

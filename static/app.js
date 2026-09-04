@@ -1,5 +1,6 @@
 /* Prefill the only things a new entry gets for free (day, clock,
-   timezone), run the account menu, and drive the audio recorder. */
+   timezone), slide between the two panes, run the menus, and drive
+   the audio recorder. */
 
 (function () {
   "use strict";
@@ -39,28 +40,66 @@
     history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
   }
 
-  // ----- Todos page: keep your place, flash new arrivals -------------------
+  // ----- Date, clock, timezone prefill ------------------------------------
+  // Runs at load and again over any pane body swapped in later.
 
-  if (location.pathname === "/todos") {
-    try {
-      var savedScroll = sessionStorage.getItem("undiary-todos-scroll");
-      if (savedScroll !== null) {
-        window.scrollTo(0, parseInt(savedScroll, 10) || 0);
-        sessionStorage.removeItem("undiary-todos-scroll");
-      }
-    } catch (e) { /* no storage, no memory */ }
+  var tz = "UTC";
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch (e) { /* UTC it is */ }
 
-    document.addEventListener("submit", function () {
-      try {
-        sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
-      } catch (e) { /* fine */ }
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  var localDate = function () {
+    var now = new Date();
+    return (
+      now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate())
+    );
+  };
+
+  var prefillLocal = function (root) {
+    root.querySelectorAll('input[name="tz"]').forEach(function (el) {
+      el.value = tz;
     });
+    root.querySelectorAll("input.js-local-date").forEach(function (el) {
+      if (!el.value) el.value = localDate();
+    });
+  };
+  prefillLocal(document);
 
+  var dateInput = document.getElementById("log-date");
+  if (dateInput && !dateInput.value) dateInput.value = localDate();
+
+  var clock = document.getElementById("log-clock");
+  if (clock) {
+    var tick = function () {
+      clock.textContent = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+    tick();
+    setInterval(tick, 30 * 1000);
+  }
+
+  var reducedMotion = function () {
+    return (
+      window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  };
+
+  // ----- Todos pane: keep your place, flash new arrivals -------------------
+  // Everything here works over a root element, because the pane's body
+  // can be swapped for a fresher one at any time.
+
+  var todosPane = document.getElementById("pane-todos");
+
+  // Proposals that arrived since the last look get the flash.
+  var SEEN_KEY = "undiary-todos-seen";
+  var markArrivals = function (root) {
     try {
-      var SEEN_KEY = "undiary-todos-seen";
       var seen = Date.parse(localStorage.getItem(SEEN_KEY) || "") || 0;
       if (seen) {
-        document.querySelectorAll(".todo[data-created]").forEach(function (el) {
+        root.querySelectorAll(".todo[data-created]").forEach(function (el) {
           if (Date.parse(el.getAttribute("data-created")) > seen) {
             el.classList.add("flash-new");
           }
@@ -68,17 +107,76 @@
       }
       localStorage.setItem(SEEN_KEY, new Date().toISOString());
     } catch (e) { /* fine */ }
+  };
 
-    document.querySelectorAll("details.item-add, details.todo-addnote").forEach(
-      function (d) {
-        d.addEventListener("toggle", function () {
-          if (d.open) {
-            var field = d.querySelector("input[type=text], textarea");
-            if (field) field.focus();
-          }
-        });
-      }
+  // Folds remember whether they were open.
+  var foldKey = function (fold) {
+    return "undiary-fold-" + fold.getAttribute("data-fold");
+  };
+  var applyFolds = function (root) {
+    root.querySelectorAll("details.todo-fold").forEach(function (fold) {
+      try {
+        var stored = localStorage.getItem(foldKey(fold));
+        if (stored === "1") fold.open = true;
+        else if (stored === "0") fold.open = false;
+      } catch (e) { /* defaults stand */ }
+    });
+  };
+
+  // Arriving at #todo-<pk>: unfold, scroll, flash.
+  var revealTodo = function (id) {
+    var target = document.getElementById(id);
+    if (!target) return;
+    var enclosing = target.closest("details.todo-fold");
+    if (enclosing) enclosing.open = true;
+    target.classList.add("flash-new");
+    target.scrollIntoView({ block: "center" });
+  };
+
+  var setupTodosBody = function (root) {
+    applyFolds(root);
+    markArrivals(root);
+  };
+
+  if (todosPane) {
+    setupTodosBody(todosPane);
+
+    if (!todosPane.hidden) {
+      try {
+        var savedScroll = sessionStorage.getItem("undiary-todos-scroll");
+        if (savedScroll !== null) {
+          window.scrollTo(0, parseInt(savedScroll, 10) || 0);
+          sessionStorage.removeItem("undiary-todos-scroll");
+        }
+      } catch (e) { /* no storage, no memory */ }
+      if (location.hash.indexOf("#todo-") === 0) revealTodo(location.hash.slice(1));
+    }
+
+    // toggle does not bubble; capturing it at the document covers folds
+    // and add-forms in any body, present or future.
+    document.addEventListener(
+      "toggle",
+      function (e) {
+        var d = e.target;
+        if (!(d instanceof Element) || !todosPane.contains(d)) return;
+        if (d.matches("details.todo-fold")) {
+          try {
+            localStorage.setItem(foldKey(d), d.open ? "1" : "0");
+          } catch (err) { /* fine */ }
+        } else if (d.open && d.matches("details.item-add, details.todo-addnote")) {
+          var field = d.querySelector("input[type=text], textarea");
+          if (field) field.focus();
+        }
+      },
+      true
     );
+
+    document.addEventListener("submit", function (e) {
+      if (!todosPane.contains(e.target)) return;
+      try {
+        sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
+      } catch (err) { /* fine */ }
+    });
 
     // Done and Dismiss collapse the card first, so the list visibly
     // closes the gap, then the verdict submits for real.
@@ -88,12 +186,7 @@
       if (!/\/(done|dismiss)$/.test(action)) return;
       var card = form.closest(".todo");
       if (!card || card.hasAttribute("data-leaving")) return;
-      if (
-        window.matchMedia &&
-        matchMedia("(prefers-reduced-motion: reduce)").matches
-      ) {
-        return;
-      }
+      if (reducedMotion()) return;
       e.preventDefault();
       card.setAttribute("data-leaving", "");
       card.style.height = card.offsetHeight + "px";
@@ -110,65 +203,209 @@
         form.submit();
       }, 300);
     });
-
-    // Arriving via a provenance link: unfold, scroll, flash.
-    if (location.hash.indexOf("#todo-") === 0) {
-      var target = document.getElementById(location.hash.slice(1));
-      if (target) {
-        var enclosing = target.closest("details.todo-fold");
-        if (enclosing) enclosing.open = true;
-        target.classList.add("flash-new");
-        target.scrollIntoView({ block: "center" });
-      }
-    }
-
-    document.querySelectorAll("details.todo-fold").forEach(function (fold) {
-      var key = "undiary-fold-" + fold.getAttribute("data-fold");
-      try {
-        var stored = localStorage.getItem(key);
-        if (stored === "1") fold.open = true;
-        else if (stored === "0") fold.open = false;
-      } catch (e) { /* defaults stand */ }
-      fold.addEventListener("toggle", function () {
-        try {
-          localStorage.setItem(key, fold.open ? "1" : "0");
-        } catch (e) { /* fine */ }
-      });
-    });
   }
 
-  // ----- Date, clock, timezone prefill ------------------------------------
+  // ----- Panes: both tabs in the DOM, a slide between them ----------------
+  // A tab click swaps panes in place and pushes that pane's URL; back
+  // and forward swap without the slide. Each pane keeps its own scroll
+  // position. Once a pane is in view its body is refreshed from the
+  // server, but only when the fingerprint has moved and nothing inside
+  // it is mid-use.
 
-  var tz = "UTC";
-  try {
-    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch (e) { /* UTC it is */ }
+  var panes = document.querySelector(".panes");
+  if (panes) {
+    var SLIDE_MS = 170;
+    var paneScroll = {};
+    var sliding = false;
 
-  document.querySelectorAll('input[name="tz"]').forEach(function (el) {
-    el.value = tz;
-  });
-
-  var now = new Date();
-  var pad = function (n) { return String(n).padStart(2, "0"); };
-  var localDate =
-    now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
-
-  var dateInput = document.getElementById("log-date");
-  if (dateInput && !dateInput.value) dateInput.value = localDate;
-  document.querySelectorAll("input.js-local-date").forEach(function (el) {
-    if (!el.value) el.value = localDate;
-  });
-
-  var clock = document.getElementById("log-clock");
-  if (clock) {
-    var tick = function () {
-      clock.textContent = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    var paneNamed = function (name) {
+      return panes.querySelector('.pane[data-pane="' + name + '"]');
     };
-    tick();
-    setInterval(tick, 30 * 1000);
+    var showingPane = function () {
+      return panes.querySelector(".pane:not([hidden])");
+    };
+    var paneForPath = function (path) {
+      return path === "/todos" ? "todos" : "notes";
+    };
+
+    var setTabs = function (dest) {
+      var name = dest.getAttribute("data-pane");
+      document.querySelectorAll(".tabs a[data-tab]").forEach(function (a) {
+        var on = a.getAttribute("data-tab") === name;
+        a.classList.toggle("active", on);
+        if (on) a.setAttribute("aria-current", "page");
+        else a.removeAttribute("aria-current");
+      });
+      document.title = dest.getAttribute("data-title") || document.title;
+    };
+
+    var paneBusy = function (body) {
+      var active = document.activeElement;
+      if (
+        active &&
+        body.contains(active) &&
+        /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)
+      ) {
+        return true;
+      }
+      return !!body.querySelector(
+        "[data-armed], [data-menu]:not([hidden]), details[open].item-add," +
+          " details[open].todo-addnote, [data-leaving]"
+      );
+    };
+
+    var refreshPane = function (pane) {
+      var body = pane.querySelector("[data-pane-body]");
+      var url = pane.getAttribute("data-url");
+      if (!body || !url) return;
+      fetch(url, { headers: { "X-Pane": "1" }, credentials: "same-origin" })
+        .then(function (res) {
+          var hash = res.headers.get("X-Pane-Hash");
+          if (!res.ok || !hash || hash === body.getAttribute("data-hash")) {
+            return null;
+          }
+          return res.text().then(function (html) {
+            return { hash: hash, html: html };
+          });
+        })
+        .then(function (update) {
+          if (!update || paneBusy(body)) return;
+          body.innerHTML = update.html;
+          body.setAttribute("data-hash", update.hash);
+          prefillLocal(body);
+          if (pane === todosPane) setupTodosBody(body);
+        })
+        .catch(function () { /* stale is fine; the next load is fresh */ });
+    };
+
+    var settle = function (from, dest, targetY, after) {
+      from.hidden = true;
+      dest.hidden = false;
+      window.scrollTo(0, targetY);
+      if (after) after();
+      refreshPane(dest);
+      // On a desk, the cursor lands in the entry box, as it does on load.
+      if (dest !== todosPane && matchMedia("(pointer: fine)").matches) {
+        var ta = dest.querySelector(".log-form textarea");
+        if (ta) ta.focus({ preventScroll: true });
+      }
+    };
+
+    var showPane = function (name, animate, after) {
+      var dest = paneNamed(name);
+      var from = showingPane();
+      if (!dest || !from || sliding) return;
+      setTabs(dest);
+      if (dest === from) {
+        if (after) after();
+        return;
+      }
+      paneScroll[from.getAttribute("data-pane")] = window.scrollY;
+      var targetY = paneScroll[name] || 0;
+
+      if (!animate || reducedMotion() || !dest.animate) {
+        settle(from, dest, targetY, after);
+        return;
+      }
+
+      // Stage the incoming pane so its content already sits where the
+      // viewport will find it once the swap lands and the scroll moves.
+      var dir = name === "todos" ? 1 : -1;
+      var offset = window.scrollY - targetY;
+      sliding = true;
+      dest.classList.add("pane-in");
+      dest.style.top = offset + "px";
+      dest.hidden = false;
+      panes.style.height =
+        Math.max(from.offsetHeight, offset + dest.offsetHeight) + "px";
+      panes.classList.add("sliding");
+
+      var timing = {
+        duration: SLIDE_MS,
+        easing: "cubic-bezier(0.2, 0, 0, 1)",
+        fill: "forwards",
+      };
+      var out = from.animate(
+        [{ transform: "translateX(0)" }, { transform: "translateX(" + -dir * 100 + "%)" }],
+        timing
+      );
+      var inn = dest.animate(
+        [{ transform: "translateX(" + dir * 100 + "%)" }, { transform: "translateX(0)" }],
+        timing
+      );
+      var finished = false;
+      var finish = function () {
+        if (finished) return;
+        finished = true;
+        sliding = false;
+        panes.classList.remove("sliding");
+        panes.style.height = "";
+        dest.classList.remove("pane-in");
+        dest.style.top = "";
+        settle(from, dest, targetY, after);
+        out.cancel();
+        inn.cancel();
+      };
+      inn.onfinish = finish;
+      setTimeout(finish, SLIDE_MS + 100);
+    };
+
+    var goPane = function (name, url, after) {
+      if (sliding) return;
+      history.pushState({ pane: name }, "", url);
+      showPane(name, true, after);
+    };
+
+    document.addEventListener("click", function (e) {
+      if (
+        e.defaultPrevented || e.button !== 0 ||
+        e.metaKey || e.ctrlKey || e.shiftKey || e.altKey
+      ) {
+        return;
+      }
+      var a = e.target.closest("a");
+      if (!a) return;
+
+      var tab = a.getAttribute("data-tab");
+      if (tab) {
+        var dest = paneNamed(tab);
+        if (!dest) return;
+        // A pane narrowed by a search is not the plain tab; clicking
+        // the tab then means "all of it", which the server renders.
+        if (dest.getAttribute("data-url") !== a.getAttribute("href")) return;
+        e.preventDefault();
+        if (dest === showingPane()) {
+          window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+          refreshPane(dest);
+          return;
+        }
+        goPane(tab, a.getAttribute("href"));
+        return;
+      }
+
+      // A provenance chip points into the todos pane: slide there and
+      // reveal the todo rather than loading the page over again.
+      if (a.classList.contains("todo-ref") && a.hash.indexOf("#todo-") === 0) {
+        var todosDest = paneNamed("todos");
+        if (!todosDest || todosDest.getAttribute("data-url") !== "/todos") return;
+        e.preventDefault();
+        var id = a.hash.slice(1);
+        goPane("todos", a.getAttribute("href"), function () { revealTodo(id); });
+      }
+    });
+
+    window.addEventListener("popstate", function () {
+      var name = paneForPath(location.pathname);
+      var dest = paneNamed(name);
+      if (!dest) return;
+      // The pane must carry the URL's own filters; otherwise the server
+      // has the page this address means.
+      if (dest.getAttribute("data-url") !== location.pathname + location.search) {
+        location.reload();
+        return;
+      }
+      showPane(name, false);
+    });
   }
 
   // ----- Popover menus (account, per-entry) --------------------------------
@@ -498,7 +735,9 @@
 
       var fd = new FormData(logForm);
       fd.append("spoken_at", record.spoken_at);
-      fetch(location.href, { method: "POST", body: fd, credentials: "same-origin" })
+      fetch(logForm.getAttribute("action") || "/", {
+        method: "POST", body: fd, credentials: "same-origin",
+      })
         .then(function (res) {
           if (postable(res)) {
             // The redirect carries ?new=<id> so the arrival can flash.

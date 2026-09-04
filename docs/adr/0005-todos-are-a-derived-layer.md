@@ -18,6 +18,13 @@ separate page over the same database; the log page stays free of task
 chrome. In code, todos consume entries and entries never import todos,
 so a future extraction line is pre-drawn but uncrossed.
 
+Amended 2026-09-04: both surfaces now render into one page and the
+client slides between them, so a tab switch costs no load. That is a
+change of display, not of flow. Each pane's body is refreshed from the
+server by fingerprint after it comes into view; the forms above each
+body are never replaced, so a draft or a running recording survives
+the swap.
+
 A second app would put an API wall through a one-user database and
 sever the note-to-todo provenance that is the whole point. An external
 tracker as the record would do the same; external systems (GitHub

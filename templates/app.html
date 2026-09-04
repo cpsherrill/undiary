@@ -1,8 +1,18 @@
 {% extends "base.html" %}
-{% load static %}
+
+{% block title %}{% if active_tab == 'todos' %}Todos &middot; Undiary{% else %}Undiary{% endif %}{% endblock %}
 
 {% block content %}
-<form method="post" class="log-form" enctype="multipart/form-data">
+{% comment %}
+Both tabs live on every page. app.js slides between them, and after a
+pane comes into view it asks the server for that pane's body alone and
+swaps it in when the fingerprint has moved. The forms above each body
+are never replaced, so a draft or a running recording survives.
+{% endcomment %}
+<div class="panes">
+<section class="pane" id="pane-notes" data-pane="notes" data-url="{{ notes_url }}"
+         data-title="Undiary"{% if active_tab != 'notes' %} hidden{% endif %}>
+<form method="post" action="{% url 'index' %}" class="log-form" enctype="multipart/form-data">
   {% csrf_token %}
   <div class="log-meta">
     <input type="date" name="log_date" id="log-date" aria-label="Log date">
@@ -32,23 +42,26 @@
   </div>
 </form>
 
-<form method="get" class="search-form" role="search">
-  <input type="search" name="q" value="{{ q }}" placeholder="Search, or #tag"
-         aria-label="Search entries">
-  {% if q %}<a class="search-clear" href="/">Clear</a>{% endif %}
-</form>
-{% if q %}
-<p class="search-note">{{ entries|length }} match{{ entries|length|pluralize:"es" }}</p>
-{% endif %}
-
 <section id="outbox" class="outbox" hidden></section>
 
-<section class="entries{% if q %} entries-searching{% endif %}">
-  {% for entry in entries %}
-  {% include "_entry.html" with entry=entry %}
-  {% empty %}
-  <p class="empty">{% if q %}Nothing matches.{% else %}Nothing here yet.{% endif %}</p>
-  {% endfor %}
+<div class="pane-body" data-pane-body data-hash="{{ notes_hash }}">{{ notes_body }}</div>
 </section>
 
+<section class="pane" id="pane-todos" data-pane="todos" data-url="{{ todos_url }}"
+         data-title="Todos &middot; Undiary"{% if active_tab != 'todos' %} hidden{% endif %}>
+<form method="post" action="{% url 'todo_create' %}" class="todo-add">
+  {% csrf_token %}
+  <input type="text" name="title" maxlength="120" placeholder="Add a todo"
+         aria-label="New todo title" required>
+  <select class="mic-select" name="horizon" aria-label="Horizon">
+    <option value="now">Now</option>
+    <option value="soon" selected>Soon</option>
+    <option value="someday">Someday</option>
+  </select>
+  <button type="submit">Add</button>
+</form>
+
+<div class="pane-body" data-pane-body data-hash="{{ todos_hash }}">{{ todos_body }}</div>
+</section>
+</div>
 {% endblock %}
