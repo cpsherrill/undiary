@@ -6,8 +6,10 @@
 {% comment %}
 Both tabs live on every page. app.js slides between them, and after a
 pane comes into view it asks the server for that pane's body alone and
-swaps it in when the fingerprint has moved. The forms above each body
-are never replaced, so a draft or a running recording survives.
+swaps it in when the fingerprint has moved. Writes inside a pane post
+by fetch and get the pane's fresh body in reply, so nothing reloads.
+The forms above each body are never replaced, so a draft or a running
+recording survives.
 {% endcomment %}
 <div class="panes">
 <section class="pane" id="pane-notes" data-pane="notes" data-url="{{ notes_url }}"
@@ -43,6 +45,7 @@ are never replaced, so a draft or a running recording survives.
 </form>
 
 <section id="outbox" class="outbox" hidden></section>
+<p class="pane-error" hidden>That didn't save. Check the connection and try again.</p>
 
 <div class="pane-body" data-pane-body data-hash="{{ notes_hash }}">{{ notes_body }}</div>
 </section>
@@ -60,6 +63,7 @@ are never replaced, so a draft or a running recording survives.
   </select>
   <button type="submit">Add</button>
 </form>
+<p class="pane-error" hidden>That didn't save. Check the connection and try again.</p>
 
 <div class="pane-body" data-pane-body data-hash="{{ todos_hash }}">{{ todos_body }}</div>
 </section>

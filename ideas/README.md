@@ -27,9 +27,10 @@ being wrong.
   animation pushing the list down, so the log visibly receives it.
   (Shipped 2026-09-01 as the arrival flash: a bright fade and a
   settle, on new entries and on new todo proposals alike.)
-- Verdicts and the Log button without a page load. The panes already
-  know how to swap a body in place by fingerprint (shipped 2026-09-04
-  with the slide between tabs); the writes could ride the same path.
+- Verdicts and the Log button without a page load. (Shipped
+  2026-09-04, the same day as the slide between tabs: every write
+  inside a pane posts by fetch and gets the pane's fresh body in
+  reply. Nothing on the two tabs reloads any more.)
 - Extensibility: hooks and plugins, and notes pushed and pulled from
   other places. The API the site already speaks, made official.
 - Reconsider the favicon. The log stands accused of being not

@@ -87,7 +87,7 @@
     );
   };
 
-  // ----- Todos pane: keep your place, flash new arrivals -------------------
+  // ----- Todos pane: folds, arrivals, and reveals ---------------------------
   // Everything here works over a root element, because the pane's body
   // can be swapped for a fresher one at any time.
 
@@ -141,15 +141,8 @@
   if (todosPane) {
     setupTodosBody(todosPane);
 
-    if (!todosPane.hidden) {
-      try {
-        var savedScroll = sessionStorage.getItem("undiary-todos-scroll");
-        if (savedScroll !== null) {
-          window.scrollTo(0, parseInt(savedScroll, 10) || 0);
-          sessionStorage.removeItem("undiary-todos-scroll");
-        }
-      } catch (e) { /* no storage, no memory */ }
-      if (location.hash.indexOf("#todo-") === 0) revealTodo(location.hash.slice(1));
+    if (!todosPane.hidden && location.hash.indexOf("#todo-") === 0) {
+      revealTodo(location.hash.slice(1));
     }
 
     // toggle does not bubble; capturing it at the document covers folds
@@ -171,23 +164,81 @@
       true
     );
 
-    document.addEventListener("submit", function (e) {
-      if (!todosPane.contains(e.target)) return;
-      try {
-        sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
-      } catch (err) { /* fine */ }
-    });
+  }
 
-    // Done and Dismiss collapse the card first, so the list visibly
-    // closes the gap, then the verdict submits for real.
-    document.addEventListener("submit", function (e) {
-      var form = e.target;
-      var action = form.getAttribute("action") || "";
-      if (!/\/(done|dismiss)$/.test(action)) return;
-      var card = form.closest(".todo");
-      if (!card || card.hasAttribute("data-leaving")) return;
-      if (reducedMotion()) return;
-      e.preventDefault();
+  // ----- Pane bodies: swapped whole, by fingerprint or after a write ------
+  // The server can answer any pane request, read or write, with that
+  // pane's body and a hash of it. Swapping keeps the forms above the
+  // body (the log form, the todo form) untouched.
+
+  var swapBody = function (pane, html, hash) {
+    var body = pane.querySelector("[data-pane-body]");
+    if (!body) return;
+    body.innerHTML = html;
+    body.setAttribute("data-hash", hash);
+    prefillLocal(body);
+    if (pane === todosPane) setupTodosBody(body);
+  };
+
+  // The pane's own filters, to carry along on a write so the body that
+  // comes back is the one being looked at.
+  var paneQuery = function (pane) {
+    var url = pane.getAttribute("data-url") || "";
+    var i = url.indexOf("?");
+    return i === -1 ? "" : url.slice(i);
+  };
+
+  var paneBusy = function (body) {
+    var active = document.activeElement;
+    if (
+      active &&
+      body.contains(active) &&
+      /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)
+    ) {
+      return true;
+    }
+    return !!body.querySelector(
+      "[data-armed], [data-menu]:not([hidden]), details[open].item-add," +
+        " details[open].todo-addnote, [data-leaving]"
+    );
+  };
+
+  // A read-side refresh: only when the fingerprint moved and nothing
+  // inside the body is mid-use.
+  var refreshPane = function (pane) {
+    var body = pane.querySelector("[data-pane-body]");
+    var url = pane.getAttribute("data-url");
+    if (!body || !url) return;
+    fetch(url, { headers: { "X-Pane": "1" }, credentials: "same-origin" })
+      .then(function (res) {
+        var hash = res.headers.get("X-Pane-Hash");
+        if (!res.ok || !hash || hash === body.getAttribute("data-hash")) {
+          return null;
+        }
+        return res.text().then(function (html) {
+          return { hash: hash, html: html };
+        });
+      })
+      .then(function (update) {
+        if (!update || paneBusy(body)) return;
+        swapBody(pane, update.html, update.hash);
+      })
+      .catch(function () { /* stale is fine; the next load is fresh */ });
+  };
+
+  var paneError = function (pane, show) {
+    var note = pane.querySelector(".pane-error");
+    if (note) note.hidden = !show;
+  };
+
+  // Done and Dismiss close their card before the verdict lands, so the
+  // list visibly closes the gap. Resolves when the card is gone.
+  var collapseCard = function (card) {
+    return new Promise(function (resolve) {
+      if (!card || card.hasAttribute("data-leaving") || reducedMotion()) {
+        resolve();
+        return;
+      }
       card.setAttribute("data-leaving", "");
       card.style.height = card.offsetHeight + "px";
       requestAnimationFrame(function () {
@@ -196,14 +247,73 @@
           card.style.height = "0px";
         });
       });
-      setTimeout(function () {
-        try {
-          sessionStorage.setItem("undiary-todos-scroll", String(window.scrollY));
-        } catch (err) { /* fine */ }
-        form.submit();
-      }, 300);
+      setTimeout(resolve, 300);
     });
-  }
+  };
+
+  var uncollapseCard = function (card) {
+    if (!card) return;
+    card.removeAttribute("data-leaving");
+    card.classList.remove("todo-leaving");
+    card.style.height = "";
+  };
+
+  // Every post from inside a pane (a verdict, a horizon, a line item, a
+  // note, a new todo, a star, a delete) goes by fetch with the pane
+  // header and gets the pane's fresh body in reply. The log form keeps
+  // its own handler below, for the outbox.
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (e.defaultPrevented || !(form instanceof HTMLFormElement)) return;
+    if ((form.getAttribute("method") || "get").toLowerCase() !== "post") return;
+    var pane = form.closest(".pane");
+    if (!pane || form.classList.contains("log-form")) return;
+    e.preventDefault();
+    if (form.hasAttribute("data-submitting")) return;
+    form.setAttribute("data-submitting", "");
+    paneError(pane, false);
+
+    var action = form.getAttribute("action") || location.pathname;
+    var card = /\/(done|dismiss)$/.test(action) ? form.closest(".todo") : null;
+    var post = fetch(action + paneQuery(pane), {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "X-Pane": "1" },
+      credentials: "same-origin",
+    });
+    Promise.all([post, collapseCard(card)])
+      .then(function (results) {
+        var res = results[0];
+        var hash = res.headers.get("X-Pane-Hash");
+        if (res.ok && hash) {
+          return res.text().then(function (html) {
+            swapBody(pane, html, hash);
+            var pk = res.headers.get("X-Entry-Id");
+            var fresh = pk && document.getElementById("entry-" + pk);
+            if (fresh) fresh.classList.add("flash-new");
+            if (form.isConnected) {
+              form.reset();
+              form.removeAttribute("data-submitting");
+            }
+          });
+        }
+        if (res.ok) {
+          // No pane in the reply: the session is gone. Take the page
+          // as it comes.
+          location.assign(res.url || location.href);
+          return;
+        }
+        throw new Error("write failed: " + res.status);
+      })
+      .catch(function () {
+        uncollapseCard(card);
+        form.removeAttribute("data-submitting");
+        form.querySelectorAll("button[disabled]").forEach(function (btn) {
+          btn.disabled = false;
+        });
+        paneError(pane, true);
+      });
+  });
 
   // ----- Panes: both tabs in the DOM, a slide between them ----------------
   // A tab click swaps panes in place and pushes that pane's URL; back
@@ -237,45 +347,6 @@
         else a.removeAttribute("aria-current");
       });
       document.title = dest.getAttribute("data-title") || document.title;
-    };
-
-    var paneBusy = function (body) {
-      var active = document.activeElement;
-      if (
-        active &&
-        body.contains(active) &&
-        /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)
-      ) {
-        return true;
-      }
-      return !!body.querySelector(
-        "[data-armed], [data-menu]:not([hidden]), details[open].item-add," +
-          " details[open].todo-addnote, [data-leaving]"
-      );
-    };
-
-    var refreshPane = function (pane) {
-      var body = pane.querySelector("[data-pane-body]");
-      var url = pane.getAttribute("data-url");
-      if (!body || !url) return;
-      fetch(url, { headers: { "X-Pane": "1" }, credentials: "same-origin" })
-        .then(function (res) {
-          var hash = res.headers.get("X-Pane-Hash");
-          if (!res.ok || !hash || hash === body.getAttribute("data-hash")) {
-            return null;
-          }
-          return res.text().then(function (html) {
-            return { hash: hash, html: html };
-          });
-        })
-        .then(function (update) {
-          if (!update || paneBusy(body)) return;
-          body.innerHTML = update.html;
-          body.setAttribute("data-hash", update.hash);
-          prefillLocal(body);
-          if (pane === todosPane) setupTodosBody(body);
-        })
-        .catch(function () { /* stale is fine; the next load is fresh */ });
     };
 
     var settle = function (from, dest, targetY, after) {
@@ -644,6 +715,8 @@
       return res.ok && res.url.indexOf("/accounts/") === -1;
     };
 
+    var notesPane = document.getElementById("pane-notes");
+
     var flushing = false;
     var flushOutbox = function () {
       if (flushing || !navigator.onLine) return;
@@ -653,11 +726,8 @@
         var sent = 0;
         var finish = function () {
           flushing = false;
-          if (sent && i >= rows.length) {
-            location.reload();
-          } else {
-            renderOutbox();
-          }
+          renderOutbox();
+          if (sent && notesPane) refreshPane(notesPane);
         };
         var next = function () {
           if (i >= rows.length) { finish(); return; }
@@ -671,7 +741,10 @@
           if (row.value.audio) {
             fd.append("audio", row.value.audio, row.value.audio_name || "recording.webm");
           }
-          fetch("/", { method: "POST", body: fd, credentials: "same-origin" })
+          fetch("/", {
+            method: "POST", body: fd,
+            headers: { "X-Pane": "1" }, credentials: "same-origin",
+          })
             .then(function (res) {
               if (postable(res)) {
                 outboxRemove(row.key).then(function () {
@@ -735,18 +808,41 @@
 
       var fd = new FormData(logForm);
       fd.append("spoken_at", record.spoken_at);
+      var responded = false;
       fetch(logForm.getAttribute("action") || "/", {
-        method: "POST", body: fd, credentials: "same-origin",
+        method: "POST", body: fd,
+        headers: { "X-Pane": "1" }, credentials: "same-origin",
       })
         .then(function (res) {
-          if (postable(res)) {
-            // The redirect carries ?new=<id> so the arrival can flash.
-            location.assign(res.url || "/");
-          } else {
-            resetLogForm();
+          responded = true;
+          var hash = res.headers.get("X-Pane-Hash");
+          if (postable(res) && hash && notesPane) {
+            return res.text().then(function (html) {
+              // The reply is the whole log, so the pane and the address
+              // drop any search they were showing, as the reload did.
+              notesPane.setAttribute("data-url", "/");
+              if (!notesPane.hidden) history.replaceState(null, "", "/");
+              swapBody(notesPane, html, hash);
+              var pk = res.headers.get("X-Entry-Id");
+              var fresh = pk && document.getElementById("entry-" + pk);
+              if (fresh) fresh.classList.add("flash-new");
+              clearLogForm();
+              resetLogForm();
+            });
           }
+          if (postable(res)) {
+            // No pane in the reply; the old way still works.
+            location.assign(res.url || "/");
+            return;
+          }
+          resetLogForm();
         })
-        .catch(queueIt);
+        .catch(function () {
+          // Before any reply, the network is the likely culprit and the
+          // outbox keeps the entry. After one, the entry is saved.
+          if (responded) location.assign("/");
+          else queueIt();
+        });
     });
 
     window.addEventListener("online", flushOutbox);

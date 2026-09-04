@@ -1397,6 +1397,130 @@ class PaneTests(TestCase):
         self.assertNotIn("log-form", body)
 
 
+class PaneWriteTests(TestCase):
+    """A write from inside a pane answers with that pane's fresh body
+    when asked for one, and redirects as before when not."""
+
+    def setUp(self):
+        from .models import Todo
+
+        self.user = make_user()
+        self.client.force_login(self.user)
+        self.birdhouse = Entry.objects.create(
+            user=self.user, raw="The birdhouse gains a roof.",
+            body="The birdhouse gains a roof.", log_date=datetime.date(2026, 8, 28),
+        )
+        Entry.objects.create(
+            user=self.user, raw="Groceries and rain.", body="Groceries and rain.",
+            log_date=datetime.date(2026, 8, 29),
+        )
+        self.fence = Todo.objects.create(
+            user=self.user, title="Paint the fence", status=Todo.OPEN,
+            horizon=Todo.SOON, decided_at=timezone.now(),
+        )
+        self.paint = Todo.objects.create(
+            user=self.user, title="Buy paint", status=Todo.OPEN,
+            horizon=Todo.NOW, decided_at=timezone.now(),
+        )
+
+    def test_verdict_answers_with_the_todos_body(self):
+        from .models import Todo
+
+        response = self.client.post(
+            reverse("todo_verdict", args=[self.fence.pk, "done"]),
+            headers={"X-Pane": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["X-Pane-Hash"])
+        body = response.content.decode()
+        self.assertNotIn("<html", body)
+        self.assertIn('data-fold="done"', body)
+        self.assertIn(">Reopen</button>", body)
+        self.fence.refresh_from_db()
+        self.assertEqual(self.fence.status, Todo.DONE)
+
+    def test_verdict_without_the_header_redirects_as_before(self):
+        response = self.client.post(
+            reverse("todo_verdict", args=[self.fence.pk, "done"])
+        )
+        self.assertRedirects(response, reverse("todos"))
+
+    def test_write_keeps_the_pane_filters(self):
+        from .models import Todo
+
+        response = self.client.post(
+            reverse("todo_horizon", args=[self.paint.pk]) + "?q=fence",
+            {"horizon": "someday"},
+            headers={"X-Pane": "1"},
+        )
+        body = response.content.decode()
+        self.assertIn("Paint the fence", body)
+        self.assertNotIn("Buy paint", body)
+        self.paint.refresh_from_db()
+        self.assertEqual(self.paint.horizon, Todo.SOMEDAY)
+
+    def test_new_todo_comes_back_in_the_body(self):
+        response = self.client.post(
+            reverse("todo_create"),
+            {"title": "Sand the gate", "horizon": "now"},
+            headers={"X-Pane": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Sand the gate", response.content.decode())
+
+    def test_log_answers_with_the_notes_body_and_names_the_entry(self):
+        response = self.client.post(
+            reverse("index"),
+            {"text": "A third thing.", "tz": "UTC"},
+            headers={"X-Pane": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        entry = self.user.entries.get(body="A third thing.")
+        self.assertEqual(response["X-Entry-Id"], str(entry.pk))
+        body = response.content.decode()
+        self.assertIn(f'id="entry-{entry.pk}"', body)
+        self.assertIn("Groceries and rain.", body)
+        self.assertNotIn("log-form", body)
+
+    def test_log_without_the_header_redirects_with_the_arrival(self):
+        response = self.client.post(
+            reverse("index"), {"text": "Plain post.", "tz": "UTC"}
+        )
+        entry = self.user.entries.get(body="Plain post.")
+        self.assertRedirects(response, f"{reverse('index')}?new={entry.pk}")
+
+    def test_star_and_delete_answer_with_the_notes_body(self):
+        response = self.client.post(
+            reverse("entry_star", args=[self.birdhouse.pk]) + "?q=birdhouse",
+            headers={"X-Pane": "1"},
+        )
+        body = response.content.decode()
+        self.assertIn("1 match", body)
+        self.assertIn(">Unstar</button>", body)
+        self.assertNotIn("Groceries and rain.", body)
+        self.birdhouse.refresh_from_db()
+        self.assertTrue(self.birdhouse.starred)
+
+        response = self.client.post(
+            reverse("entry_delete", args=[self.birdhouse.pk]),
+            headers={"X-Pane": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn("The birdhouse gains a roof.", body)
+        self.assertIn("Groceries and rain.", body)
+        self.assertFalse(self.user.entries.filter(pk=self.birdhouse.pk).exists())
+
+    def test_horizon_select_submits_through_the_event(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        source = (Path(settings.BASE_DIR) / "templates" / "_todo.html").read_text()
+        self.assertIn("requestSubmit()", source)
+        self.assertNotIn("this.form.submit()", source)
+
+
 @override_settings(UNDIARY_ADMIN_EMAILS=["colin@example.com"])
 class AdminPromotionTests(TestCase):
     def test_admin_email_gets_staff_and_superuser(self):

@@ -705,3 +705,8 @@ span.item-done { color: var(--muted); text-decoration: line-through; }
 .panes { position: relative; }
 .panes.sliding { overflow: hidden; }
 .pane-in { position: absolute; left: 0; right: 0; }
+.pane-error {
+  margin: 0.8rem 0 0;
+  color: var(--danger);
+  font-size: 0.88rem;
+}

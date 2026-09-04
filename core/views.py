@@ -48,8 +48,8 @@ def index(request):
             if audio_key:
                 transcription.transcribe_quietly(entry)
             enrichment.enrich_quietly(entry)
-            return redirect(f"{reverse('index')}?new={entry.pk}")
-        return redirect("index")
+            return _notes_after_write(request, entry)
+        return _notes_after_write(request)
 
     q = (request.GET.get("q") or "").strip()
     notes = _notes_context(request.user, q)
@@ -200,6 +200,35 @@ def _render_app(request, active, notes, todos, notes_url, todos_url):
     )
 
 
+def _todos_after_write(request):
+    """A write from the todos pane answers with the pane's fresh body,
+    for the filters the pane was showing; a plain form post redirects
+    as it always did."""
+    if _wants_pane(request):
+        q = (request.GET.get("q") or "").strip()
+        topic = (request.GET.get("topic") or "").strip()
+        return _pane_response(
+            request, "_todos_body.html", _todos_context(request.user, q, topic)
+        )
+    return redirect("todos")
+
+
+def _notes_after_write(request, new_entry=None):
+    """The notes-pane counterpart. A new entry rides back in a header so
+    the client can flash it."""
+    if _wants_pane(request):
+        q = (request.GET.get("q") or "").strip()
+        response = _pane_response(
+            request, "_notes_body.html", _notes_context(request.user, q)
+        )
+        if new_entry is not None:
+            response["X-Entry-Id"] = str(new_entry.pk)
+        return response
+    if new_entry is not None:
+        return redirect(f"{reverse('index')}?new={new_entry.pk}")
+    return redirect("index")
+
+
 @login_required
 def entry_detail(request, pk):
     entry = get_object_or_404(
@@ -226,7 +255,7 @@ def todo_create(request):
             horizon=horizon if horizon in dict(Todo.HORIZONS) else Todo.SOON,
             decided_at=timezone.now(),
         )
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -252,7 +281,7 @@ def todo_note(request, pk):
             defaults={"source": TodoEntry.USER},
         )
         enrichment.enrich_quietly(entry)
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -268,7 +297,7 @@ def todo_verdict(request, pk, action):
         "restore": ([Todo.DISMISSED], Todo.PROPOSED, None),
     }
     if action not in transitions:
-        return redirect("todos")
+        return _todos_after_write(request)
     allowed_from, target, stamp = transitions[action]
     todo = request.user.todos.filter(pk=pk, status__in=allowed_from).first()
     if todo:
@@ -280,7 +309,7 @@ def todo_verdict(request, pk, action):
         if action == "restore":
             todo.decided_at = None
         todo.save()
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -297,7 +326,7 @@ def todo_item_add(request, pk):
         TodoItem.objects.create(
             todo=todo, text=text, position=(last + 1) if last is not None else 0
         )
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -309,7 +338,7 @@ def todo_item_toggle(request, pk):
     if item:
         item.done = not item.done
         item.save(update_fields=["done"])
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -322,7 +351,7 @@ def todo_horizon(request, pk):
     if todo and horizon in dict(Todo.HORIZONS):
         todo.horizon = horizon
         todo.save(update_fields=["horizon"])
-    return redirect("todos")
+    return _todos_after_write(request)
 
 
 @login_required
@@ -362,6 +391,8 @@ def entry_star(request, pk):
     if entry:
         entry.starred = not entry.starred
         entry.save(update_fields=["starred", "edited_at"])
+    if _wants_pane(request):
+        return _notes_after_write(request)
     referer = request.headers.get("Referer", "")
     if referer.startswith(request.build_absolute_uri("/")):
         return redirect(referer)
@@ -386,7 +417,7 @@ def entry_delete(request, pk):
                 # The row is gone either way; an orphaned blob is the
                 # cheaper failure, so cleanup stays best-effort.
                 pass
-    return redirect("index")
+    return _notes_after_write(request)
 
 
 def _store_audio(upload):

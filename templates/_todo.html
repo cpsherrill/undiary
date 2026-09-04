@@ -7,7 +7,7 @@
       <form method="post" action="{% url 'todo_verdict' todo.pk 'dismiss' %}">{% csrf_token %}<button class="quiet" type="submit">Dismiss</button></form>
       {% elif todo.status == 'open' %}
       <form method="post" action="{% url 'todo_horizon' todo.pk %}">{% csrf_token %}
-        <select class="mic-select" name="horizon" aria-label="Horizon" onchange="this.form.submit()">
+        <select class="mic-select" name="horizon" aria-label="Horizon" onchange="this.form.requestSubmit()">
           {% for value, label in todo.HORIZONS %}
           <option value="{{ value }}" {% if todo.horizon == value %}selected{% endif %}>{{ label|title }}</option>
           {% endfor %}

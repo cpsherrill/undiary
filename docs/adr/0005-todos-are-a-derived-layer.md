@@ -21,7 +21,9 @@ so a future extraction line is pre-drawn but uncrossed.
 Amended 2026-09-04: both surfaces now render into one page and the
 client slides between them, so a tab switch costs no load. That is a
 change of display, not of flow. Each pane's body is refreshed from the
-server by fingerprint after it comes into view; the forms above each
+server by fingerprint after it comes into view, and every write inside
+a pane (a verdict, a new todo, a new entry) answers with that pane's
+fresh body, so nothing on the two tabs reloads. The forms above each
 body are never replaced, so a draft or a running recording survives
 the swap.
 
